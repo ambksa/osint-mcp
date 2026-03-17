@@ -1,4 +1,4 @@
-"""Aggregate tools: health_check, list_modules, query_modules, get_intelligence_summary."""
+"""Aggregate tools: health_check, list_modules, query_modules, get_intelligence_summary, intelligence_report."""
 
 from __future__ import annotations
 
@@ -41,5 +41,18 @@ def register_aggregate_tools(mcp: FastMCP, client: HeadlessClient) -> None:
     async def get_intelligence_summary(format: str = "json") -> dict:
         """Get synthesized intelligence risk summary from conflict, unrest, outages, cyber, and seismic sources."""
         return await client.query_module("intelligence_risk_scores", {
+            "format": format,
+        })
+
+    @mcp.tool()
+    async def intelligence_report(
+        query: str,
+        keywords: str | None = None,
+        format: str = "json",
+    ) -> dict:
+        """Generate a comprehensive intelligence report for a region or topic. Queries 14 OSINT modules in parallel (news, conflict, maritime, military, cyber, economic, infrastructure, aviation) and filters results by keywords. This is the most powerful single tool — use it for 'intelligence report on X' or 'OSINT on X' queries. The query param is the region/topic (e.g., 'Dubai', 'Iran', 'Taiwan Strait'). Keywords param is optional comma-separated filter terms (auto-derived from query if omitted)."""
+        return await client.query_module("intelligence_report", {
+            "query": query,
+            "keywords": keywords or query,
             "format": format,
         })

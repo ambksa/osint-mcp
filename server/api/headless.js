@@ -1355,6 +1355,94 @@ const MODULES = {
     description: 'Airport delays',
     run: (ctx) => fetchJson(ctx.origin, '/api/aviation/v1/list-airport-delays', {}),
   },
+  intelligence_report: {
+    description: 'Comprehensive intelligence report for a region/topic with keyword filtering',
+    run: async (ctx, params) => {
+      const query = params.query ?? params.q ?? '';
+      const keywords = (params.keywords ?? query).split(',').map(k => k.trim()).filter(Boolean);
+      if (!query && keywords.length === 0) {
+        return { error: 'Required: query (region or topic) or keywords (comma-separated)' };
+      }
+
+      const reportModules = [
+        'news_rss', 'intelligence_risk_scores', 'conflict_acled', 'unrest_events',
+        'supply_chain_chokepoints', 'maritime_warnings', 'maritime_snapshot',
+        'military_posture', 'military_usni', 'cyber_threats', 'aviation_delays',
+        'economic_macro', 'infrastructure_outages', 'infrastructure_services',
+      ];
+
+      const filterFn = (item) => {
+        if (keywords.length === 0) return true;
+        const text = JSON.stringify(item).toLowerCase();
+        return keywords.some(k => text.includes(k.toLowerCase()));
+      };
+
+      const results = {};
+      const errors = [];
+      const startTime = Date.now();
+
+      const settled = await Promise.allSettled(
+        reportModules.map(async (name) => {
+          const mod = MODULES[name];
+          if (!mod) return { name, result: { error: 'Unknown module' } };
+          try {
+            const rawData = await mod.run(ctx, params);
+            return { name, result: rawData };
+          } catch (err) {
+            return { name, result: { error: err.message || String(err) } };
+          }
+        })
+      );
+
+      for (const s of settled) {
+        const { name, result } = s.status === 'fulfilled' ? s.value : { name: 'unknown', result: { error: s.reason?.message } };
+        if (result.error) {
+          errors.push({ module: name, error: result.error });
+          continue;
+        }
+
+        const data = result.data || result;
+        const filtered = {};
+
+        // Filter arrays by keyword
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            const matched = value.filter(filterFn);
+            if (matched.length > 0) filtered[key] = matched;
+          } else if (typeof value === 'object' && value !== null && filterFn(value)) {
+            filtered[key] = value;
+          } else if (typeof value !== 'object') {
+            filtered[key] = value;
+          }
+        }
+
+        if (Object.keys(filtered).length > 0) {
+          const modDef = MODULES[name];
+          results[name] = { data: filtered, description: result.description || (modDef && modDef.description) || name };
+        }
+      }
+
+      // Also include unfiltered summary modules (risk scores, chokepoints always relevant)
+      for (const s of settled) {
+        if (s.status !== 'fulfilled') continue;
+        const { name, result } = s.value;
+        if (result.error) continue;
+        if (['intelligence_risk_scores', 'supply_chain_chokepoints', 'economic_macro'].includes(name) && !results[name]) {
+          results[name] = { data: result.data || result, description: result.description || '' };
+        }
+      }
+
+      return {
+        query,
+        keywords,
+        durationMs: Date.now() - startTime,
+        modulesQueried: reportModules.length,
+        modulesWithResults: Object.keys(results).length,
+        errors: errors.length > 0 ? errors : undefined,
+        report: results,
+      };
+    },
+  },
 };
 
 const CORE_MODULES = [
@@ -1512,10 +1600,11 @@ export default async function handler(req) {
       const mod = MODULES[name];
       if (!mod) return { name, record: { error: 'Unknown module' } };
 
-      // Param isolation: only pass params explicitly keyed to the module name
+      // Param isolation: use module-keyed params if available, fall back to
+      // top-level params for single-module queries (allows direct params passthrough)
       const moduleParams = (typeof params[name] === 'object' && params[name] !== null)
         ? params[name]
-        : {};
+        : (moduleList.length === 1 ? params : {});
       const requestedTtl = Number(moduleParams.cache_ttl_ms ?? params.cache_ttl_ms ?? DEFAULT_CACHE_TTL_MS);
       const ttlMs = Number.isFinite(requestedTtl) ? Math.max(0, requestedTtl) : DEFAULT_CACHE_TTL_MS;
 
