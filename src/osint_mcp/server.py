@@ -8,6 +8,7 @@ import os
 from fastmcp import FastMCP
 
 from osint_mcp.client import HeadlessClient
+from osint_mcp.resources import register_resources
 from osint_mcp.tools import register_all_tools
 
 
@@ -32,6 +33,7 @@ def _build_server() -> FastMCP:
     mcp = FastMCP(**kwargs)
     client = HeadlessClient(base_url=base_url, timeout=timeout)
     register_all_tools(mcp, client)
+    register_resources(mcp, client)
     return mcp
 
 
