@@ -56,6 +56,35 @@ When the user asks a general "what's going on" question:
 
 Present: top risk regions, breaking news, active threats, significant natural events.
 
+### Intelligence Report — "intelligence report on [place]" / "OSINT on [place]" / "intel on [place]"
+
+The most comprehensive workflow. Call ALL of these tools — do not skip any:
+
+1. `get_geocode` with the place name → get coordinates and bbox
+2. `get_intelligence_summary` — overall risk scores for the region
+3. `get_conflict_acled` — armed conflict events (use bbox if available)
+4. `get_unrest_events` — protests and civil unrest (use bbox)
+5. `get_news_rss` — latest headlines (scan for region-relevant articles)
+6. `get_military_posture` — theater posture summary
+7. `get_military_usni` — USNI fleet tracker for naval presence
+8. `get_chokepoints` — nearby maritime chokepoint status
+9. `get_maritime_warnings` — active navigational warnings
+10. `get_cyber_threats` — active cyber IOCs
+11. `get_aviation_delays` — airport delays in the region
+12. `get_economic_macro` — macro economic signals
+13. `get_infrastructure_outages` — internet outages
+14. `get_displacement` — displacement/refugee data
+
+Present as a structured intelligence report with these sections:
+- **Security & Geopolitical Risk**: risk scores, conflicts, unrest, military posture
+- **Maritime & Logistics**: chokepoint status, warnings, shipping
+- **Aviation & Travel**: airport delays, airspace status from news
+- **Economic Signals**: macro data, market sentiment, trade impact
+- **Cyber & Infrastructure**: threats, outages, cable health
+- **Humanitarian**: displacement, population exposure
+
+Cross-reference news headlines against all other data sources. If news mentions events (blockades, airspace closures, attacks) that aren't reflected in structured data, flag the discrepancy and use the news as the primary signal.
+
 ### Threat Briefing — "threat briefing for [region/topic]"
 
 For regional or topical threat assessment:
@@ -223,6 +252,7 @@ Every tool accepts:
 ## Decision logic
 
 **When to use which workflow:**
+- User asks for "intelligence report" / "OSINT on" / "intel on" → Intelligence Report (most comprehensive)
 - User asks about a place → Regional SITREP
 - User asks about threats → Threat Briefing
 - User asks about shipping/trade → Supply Chain Risk or Maritime Situation
@@ -256,6 +286,9 @@ Every tool accepts:
 
 These are example prompts users might say, mapped to workflows:
 
+- "Intelligence report on Dubai" → Intelligence Report
+- "OSINT on Iran" → Intelligence Report
+- "Intel on the Middle East" → Intelligence Report
 - "What's happening in the world right now" → Quick Scan
 - "Give me a threat briefing for the Middle East" → Threat Briefing
 - "What's the situation in Ukraine" → Regional SITREP
