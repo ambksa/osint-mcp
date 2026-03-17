@@ -1,0 +1,9 @@
+display_name: OSINT Intelligence
+short_description: Real-time OSINT intelligence gathering using 57 tools across conflict, maritime, military, cyber, markets, economics, and 12 more domains.
+default_prompt: >
+  Use the OSINT skill to gather real-time open-source intelligence.
+  Available workflows: Quick Scan, Threat Briefing, Maritime Situation,
+  Economic Outlook, Regional SITREP, Supply Chain Risk, Military Posture,
+  Humanitarian Assessment, Prediction Markets, Research Digest.
+  Start with health_check to verify connectivity, then use the appropriate
+  workflow for the user's question. See SKILL.md for tool chains.
