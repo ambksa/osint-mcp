@@ -20,7 +20,7 @@ def register_aggregate_tools(mcp: FastMCP, client: HeadlessClient) -> None:
     @mcp.tool()
     async def list_modules() -> dict:
         """List all available OSINT module IDs and descriptions."""
-        return await client.query_module("list", {"format": "json"})
+        return await client.list_modules()
 
     @mcp.tool()
     async def query_modules(
