@@ -1355,6 +1355,252 @@ const MODULES = {
     description: 'Airport delays',
     run: (ctx) => fetchJson(ctx.origin, '/api/aviation/v1/list-airport-delays', {}),
   },
+
+  // ── Spec 3: Natural Disasters ──────────────────────────────────────
+  natural_events_eonet: {
+    description: 'NASA EONET active natural events (volcanoes, storms, floods, landslides)',
+    run: async () => {
+      const data = await fetchJsonUrl(
+        'https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=50',
+        { timeoutMs: 25000 },
+      );
+      const events = Array.isArray(data?.events) ? data.events : [];
+      return {
+        events: events.map((e) => ({
+          id: e.id || '',
+          title: e.title || '',
+          categories: (e.categories || []).map((c) => c.title || c.id || ''),
+          sources: (e.sources || []).map((s) => ({ id: s.id || '', url: s.url || '' })),
+          geometry: (e.geometries || []).slice(-1).map((g) => ({
+            date: g.date || '',
+            type: g.type || '',
+            coordinates: g.coordinates || [],
+          }))[0] || null,
+          closed: e.closed || null,
+        })),
+        count: events.length,
+        source: 'NASA EONET v3',
+      };
+    },
+  },
+  natural_events_gdacs: {
+    description: 'GDACS global disaster alerts with severity levels',
+    run: async () => {
+      const resp = await fetch(
+        'https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?alertlevel=Green;Orange;Red&eventtype=EQ;TC;FL;VO;DR;WF',
+        {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(25000),
+        },
+      );
+      const text = await resp.text();
+      if (!resp.ok) throw new Error(`GDACS HTTP ${resp.status}: ${text.slice(0, 220)}`);
+      // GDACS may return XML or JSON depending on endpoint; try JSON first
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+        data = parser.parse(text);
+      }
+      const features = Array.isArray(data?.features) ? data.features : [];
+      // If GeoJSON
+      if (features.length > 0) {
+        return {
+          events: features.map((f) => ({
+            id: f.properties?.eventid || f.id || '',
+            name: f.properties?.name || f.properties?.eventname || '',
+            type: f.properties?.eventtype || '',
+            alertLevel: f.properties?.alertlevel || '',
+            severity: f.properties?.severity?.severity_value || '',
+            country: f.properties?.country || '',
+            date: f.properties?.fromdate || f.properties?.todate || '',
+            coordinates: f.geometry?.coordinates || [],
+            url: f.properties?.url?.report || f.properties?.url || '',
+          })),
+          count: features.length,
+          source: 'GDACS',
+        };
+      }
+      // Fallback: return raw
+      return { raw: data, source: 'GDACS' };
+    },
+  },
+  tropical_weather: {
+    description: 'NOAA NHC active tropical cyclones and storm tracks',
+    run: async () => {
+      const urls = [
+        'https://www.nhc.noaa.gov/CurrentSurges.json',
+        'https://www.nhc.noaa.gov/productexamples/NHC_JSON_Sample.json',
+      ];
+      const results = await Promise.allSettled(
+        urls.map((u) =>
+          fetchJsonUrl(u, { timeoutMs: 20000 }).catch((err) => ({ error: err.message })),
+        ),
+      );
+      const surges = results[0].status === 'fulfilled' ? results[0].value : { error: results[0].reason?.message || 'fetch failed' };
+      const sample = results[1].status === 'fulfilled' ? results[1].value : { error: results[1].reason?.message || 'fetch failed' };
+      const activeSurges = Array.isArray(surges?.CurrentSurges)
+        ? surges.CurrentSurges
+        : [];
+      return {
+        activeSurges: activeSurges.map((s) => ({
+          location: s.location || s.Location || '',
+          surge_ft: s.surge || s.Surge || null,
+          time: s.time || s.Time || '',
+        })),
+        sampleAdvisory: sample?.error ? null : sample,
+        surgeCount: activeSurges.length,
+        source: 'NOAA NHC',
+      };
+    },
+  },
+  weather_alerts: {
+    description: 'NWS active US weather alerts (severe/extreme)',
+    run: async () => {
+      const data = await fetchJsonUrl(
+        'https://api.weather.gov/alerts/active?status=actual&severity=Severe,Extreme',
+        {
+          timeoutMs: 20000,
+          headers: {
+            'User-Agent': 'osint-mcp/1.0 (contact: osint-mcp@github)',
+            Accept: 'application/geo+json',
+          },
+        },
+      );
+      const features = Array.isArray(data?.features) ? data.features : [];
+      return {
+        alerts: features.map((f) => ({
+          id: f.properties?.id || f.id || '',
+          event: f.properties?.event || '',
+          headline: f.properties?.headline || '',
+          severity: f.properties?.severity || '',
+          certainty: f.properties?.certainty || '',
+          urgency: f.properties?.urgency || '',
+          areaDesc: f.properties?.areaDesc || '',
+          onset: f.properties?.onset || '',
+          expires: f.properties?.expires || '',
+          senderName: f.properties?.senderName || '',
+          description: (f.properties?.description || '').slice(0, 500),
+        })),
+        count: features.length,
+        source: 'NWS',
+      };
+    },
+  },
+
+  // ── Spec 3: Radiation Monitoring ───────────────────────────────────
+  radiation_epa: {
+    description: 'EPA RadNet US radiation monitoring sensor readings',
+    run: async () => {
+      // Try multiple known endpoints — EPA reorganizes these periodically
+      const endpoints = [
+        'https://radnet.epa.gov/cdx-radnet-rest/api/rest/csv/',
+        'https://radnet.epa.gov/cdx-radnet-rest/api/rest/csv',
+      ];
+      let text = null;
+      let lastError = '';
+      for (const url of endpoints) {
+        try {
+          const resp = await fetch(url, {
+            headers: { Accept: 'text/csv, application/json, */*' },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (resp.ok) {
+            text = await resp.text();
+            break;
+          }
+          lastError = `HTTP ${resp.status}`;
+        } catch (err) {
+          lastError = err.message || String(err);
+        }
+      }
+      if (!text) {
+        return {
+          readings: [],
+          count: 0,
+          error: `EPA RadNet API unavailable: ${lastError}`,
+          note: 'The EPA RadNet CSV API may be temporarily down or reorganized.',
+          source: 'EPA RadNet',
+        };
+      }
+      // Parse CSV: first line is header, rest are data rows
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) return { readings: [], count: 0, source: 'EPA RadNet' };
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+      const readings = lines.slice(1, 101).map((line) => {
+        const values = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+        const row = {};
+        headers.forEach((h, i) => { row[h] = values[i] || ''; });
+        return row;
+      });
+      return { readings, count: readings.length, totalRows: lines.length - 1, source: 'EPA RadNet' };
+    },
+  },
+  radiation_safecast: {
+    description: 'Safecast global citizen radiation sensor network',
+    run: async () => {
+      const data = await fetchJsonUrl(
+        'https://api.safecast.org/measurements.json?distance=10000&order=created_at+desc&per_page=100',
+        { timeoutMs: 25000 },
+      );
+      const measurements = Array.isArray(data) ? data : [];
+      return {
+        measurements: measurements.map((m) => ({
+          id: m.id || '',
+          value: m.value ?? null,
+          unit: m.unit || 'cpm',
+          latitude: m.latitude ?? null,
+          longitude: m.longitude ?? null,
+          captured_at: m.captured_at || '',
+          device_id: m.device_id || '',
+          location_name: m.location_name || '',
+        })),
+        count: measurements.length,
+        source: 'Safecast',
+      };
+    },
+  },
+
+  // ── Spec 3: Sanctions ──────────────────────────────────────────────
+  sanctions_ofac: {
+    description: 'OFAC SDN sanctions list — designated persons, vessels, aircraft',
+    run: async () => {
+      const resp = await fetch(
+        'https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML',
+        {
+          headers: { Accept: 'application/xml, text/xml, */*' },
+          signal: AbortSignal.timeout(30000),
+        },
+      );
+      const text = await resp.text();
+      if (!resp.ok) throw new Error(`OFAC HTTP ${resp.status}: ${text.slice(0, 220)}`);
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const parsed = parser.parse(text);
+      // SDN XML structure: sdnList > sdnEntry[]
+      const root = parsed?.sdnList || parsed?.SdnList || parsed;
+      const entries = root?.sdnEntry || root?.SdnEntry || [];
+      const list = Array.isArray(entries) ? entries : [entries].filter(Boolean);
+      // Return first 200 entries to keep response manageable
+      const truncated = list.slice(0, 200);
+      return {
+        entries: truncated.map((e) => ({
+          uid: e['@_uid'] || e.uid || '',
+          lastName: e.lastName || '',
+          firstName: e.firstName || '',
+          sdnType: e.sdnType || '',
+          programList: e.programList?.program
+            ? (Array.isArray(e.programList.program) ? e.programList.program : [e.programList.program])
+            : [],
+          title: e.title || '',
+          remarks: (e.remarks || '').slice(0, 300),
+        })),
+        count: truncated.length,
+        totalEntries: list.length,
+        source: 'OFAC SDN',
+      };
+    },
+  },
 };
 
 const CORE_MODULES = [

@@ -311,6 +311,44 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "intelligence_pizzint",
         "description": "Get PizzINT status monitor.",
     },
+    # ── Spec 3: Natural Disasters ────────────────────────────────────
+    {
+        "tool_name": "get_natural_events",
+        "module_id": "natural_events_eonet",
+        "description": "Get active natural events from NASA EONET (volcanoes, storms, floods, landslides).",
+    },
+    {
+        "tool_name": "get_disaster_alerts",
+        "module_id": "natural_events_gdacs",
+        "description": "Get GDACS global disaster alerts with severity levels.",
+    },
+    {
+        "tool_name": "get_tropical_weather",
+        "module_id": "tropical_weather",
+        "description": "Get NOAA NHC active tropical cyclones and storm tracks.",
+    },
+    {
+        "tool_name": "get_weather_alerts",
+        "module_id": "weather_alerts",
+        "description": "Get active US weather alerts (severe/extreme) from NWS.",
+    },
+    # ── Spec 3: Radiation Monitoring ─────────────────────────────────
+    {
+        "tool_name": "get_radiation_epa",
+        "module_id": "radiation_epa",
+        "description": "Get EPA RadNet US radiation monitoring sensor readings.",
+    },
+    {
+        "tool_name": "get_radiation_safecast",
+        "module_id": "radiation_safecast",
+        "description": "Get Safecast global citizen radiation sensor network data.",
+    },
+    # ── Spec 3: Sanctions ────────────────────────────────────────────
+    {
+        "tool_name": "get_sanctions",
+        "module_id": "sanctions_ofac",
+        "description": "Get OFAC SDN sanctions list — designated persons, vessels, aircraft.",
+    },
 ]
 
 
