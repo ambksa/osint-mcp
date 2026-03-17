@@ -6,6 +6,8 @@ codev/.update-hashes.json
 
 # Dependencies
 node_modules/
+.venv/
+__pycache__/
 
 # Build output
 dist/
@@ -17,3 +19,6 @@ dist/
 .DS_Store
 *.swp
 *.swo
+
+# Logs
+*.log

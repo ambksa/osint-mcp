@@ -1,0 +1,523 @@
+{
+  "requestedAt": "2026-03-01T17:49:36.268Z",
+  "base": "http://127.0.0.1:3000",
+  "total": 53,
+  "modules": [
+    {
+      "id": "geocode_place",
+      "description": "Geocode a place name to coordinates (Nominatim)",
+      "status": 200,
+      "summary": {
+        "error": "HTTP 400 /api/geocode: {\"error\":\"Missing query\"}"
+      }
+    },
+    {
+      "id": "satellite_snapshot",
+      "description": "Generate satellite snapshot URL (ArcGIS default)",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=8)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "predictions",
+      "description": "Polymarket open prediction markets (gamma via sebuf)",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "polymarket_intel",
+      "description": "Polymarket live trades + insider signals",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=4)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "geo_filters",
+      "description": "OSM geolocation filters (roundabouts, traffic signs, etc.)",
+      "status": 200,
+      "summary": {
+        "error": "The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "seismology_earthquakes",
+      "description": "USGS earthquakes",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "wildfire_detections",
+      "description": "NASA FIRMS fire detections",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "climate_anomalies",
+      "description": "Climate anomalies",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "unrest_events",
+      "description": "Protests and unrest (ACLED/GDELT)",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "conflict_acled",
+      "description": "ACLED conflict events",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "conflict_ucdp_events",
+      "description": "UCDP GED conflict events",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "conflict_hapi",
+      "description": "HDX HAPI humanitarian conflict summary",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=0)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "displacement_summary",
+      "description": "UNHCR displacement summary",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "population_exposure",
+      "description": "WorldPop exposure estimates",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "maritime_warnings",
+      "description": "Navigational warnings",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "maritime_snapshot",
+      "description": "AIS vessel snapshot and disruptions",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=0)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "military_flights",
+      "description": "Military flights (OpenSky/relay)",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "military_posture",
+      "description": "Theater posture summary",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "military_usni",
+      "description": "USNI Fleet report",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=4)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "infrastructure_outages",
+      "description": "Internet outages",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "infrastructure_cable_health",
+      "description": "Undersea cable health",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "infrastructure_baseline",
+      "description": "Infrastructure temporal baseline",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=4)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "infrastructure_services",
+      "description": "Service status checks",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "cyber_threats",
+      "description": "Cyber threat IOCs",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "markets",
+      "description": "Market quotes",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "markets_crypto",
+      "description": "Crypto quotes",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "markets_commodities",
+      "description": "Commodity quotes",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "markets_stablecoins",
+      "description": "Stablecoin market data",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "markets_etf_flows",
+      "description": "ETF flows",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "economic_macro",
+      "description": "Macro signals",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=7)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "economic_energy",
+      "description": "Energy prices",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "economic_bis_rates",
+      "description": "BIS policy rates",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "economic_bis_fx",
+      "description": "BIS exchange rates",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "economic_bis_credit",
+      "description": "BIS credit indicators",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "trade_restrictions",
+      "description": "Trade restrictions",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "trade_tariffs",
+      "description": "Tariff trends",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "trade_flows",
+      "description": "Trade flows",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "trade_barriers",
+      "description": "Trade barriers",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "supply_chain_shipping",
+      "description": "Shipping rates",
+      "status": 200,
+      "summary": {
+        "error": "HTTP 404 /api/supply-chain/v1/get-shipping-rates: {\"error\":\"Not found\"}"
+      }
+    },
+    {
+      "id": "supply_chain_chokepoints",
+      "description": "Chokepoint status",
+      "status": 200,
+      "summary": {
+        "error": "HTTP 404 /api/supply-chain/v1/get-chokepoint-status: {\"error\":\"Not found\"}"
+      }
+    },
+    {
+      "id": "supply_chain_critical_minerals",
+      "description": "Critical minerals",
+      "status": 200,
+      "summary": {
+        "error": "HTTP 404 /api/supply-chain/v1/get-critical-minerals: {\"error\":\"Not found\"}"
+      }
+    },
+    {
+      "id": "positive_events",
+      "description": "Positive geo events",
+      "status": 200,
+      "summary": {
+        "error": "The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "giving_summary",
+      "description": "Giving summary",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "research_tech_events",
+      "description": "Tech events",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=7)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "research_arxiv",
+      "description": "Arxiv papers",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "research_trending_repos",
+      "description": "Trending repos",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "research_hackernews",
+      "description": "Hacker News",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "intelligence_risk_scores",
+      "description": "Risk scores",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "intelligence_pizzint",
+      "description": "PizzINT status",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "intelligence_gdelt",
+      "description": "GDELT document search",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=3)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "news_rss",
+      "description": "RSS news feeds (parsed server-side)",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=2)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    },
+    {
+      "id": "news_telegram",
+      "description": "Telegram OSINT feed (relay)",
+      "status": 200,
+      "summary": {
+        "error": "HTTP 503: {\"error\":\"WS_RELAY_URL not configured\"}"
+      }
+    },
+    {
+      "id": "aviation_delays",
+      "description": "Airport delays",
+      "status": 200,
+      "summary": {
+        "data": "object(keys=1)",
+        "durationMs": "number",
+        "description": "string"
+      }
+    }
+  ]
+}

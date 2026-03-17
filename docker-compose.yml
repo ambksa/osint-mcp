@@ -1,0 +1,21 @@
+services:
+  headless:
+    build: ./server
+    environment:
+      - PORT=8080
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  mcp:
+    build: ./mcp
+    ports:
+      - "8080:8080"
+    environment:
+      - HEADLESS_BASE_URL=http://headless:8080
+      - HEADLESS_TIMEOUT=60
+    depends_on:
+      headless:
+        condition: service_healthy

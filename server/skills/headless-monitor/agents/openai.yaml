@@ -1,0 +1,4 @@
+interface:
+  display_name: "Headless Monitor"
+  short_description: "Headless access to all World Monitor modules via API/CLI/WS."
+  default_prompt: "Use headless-monitor to fetch global snapshots or module outputs (JSON+MD), or set up live polling."

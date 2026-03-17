@@ -2,6 +2,24 @@
 
 ## Project Overview
 
+Monorepo for OSINT MCP tooling:
+
+- **`mcp/`** — Python FastMCP server (57 tools, 6 resources) wrapping the headless API
+- **`server/`** — Node.js headless OSINT server (worldosint-headless fork) aggregating 48+ data sources
+- **`docker-compose.yml`** — Runs both services together
+
+### Quick Run
+
+```bash
+# Docker (easiest)
+docker compose up
+# MCP available at http://localhost:8080/mcp
+
+# Local dev
+cd server && npm install && PORT=3000 node --import tsx server.mjs &
+cd mcp && uv sync && uv run osint-mcp
+```
+
 This project uses **Codev** for AI-assisted development.
 
 ## Available Protocols
