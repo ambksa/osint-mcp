@@ -58,24 +58,20 @@ Present: top risk regions, breaking news, active threats, significant natural ev
 
 ### Intelligence Report — "intelligence report on [place]" / "OSINT on [place]" / "intel on [place]"
 
-The most comprehensive workflow. Call ALL of these tools — do not skip any:
+**USE THE COMPOSITE TOOL — ONE CALL, NOT 14.** Call `intelligence_report` once:
 
-1. `get_geocode` with the place name → get coordinates and bbox
-2. `get_intelligence_summary` — overall risk scores for the region
-3. `get_conflict_acled` — armed conflict events (use bbox if available)
-4. `get_unrest_events` — protests and civil unrest (use bbox)
-5. `get_news_rss` — latest headlines (scan for region-relevant articles)
-6. `get_military_posture` — theater posture summary
-7. `get_military_usni` — USNI fleet tracker for naval presence
-8. `get_chokepoints` — nearby maritime chokepoint status
-9. `get_maritime_warnings` — active navigational warnings
-10. `get_cyber_threats` — active cyber IOCs
-11. `get_aviation_delays` — airport delays in the region
-12. `get_economic_macro` — macro economic signals
-13. `get_infrastructure_outages` — internet outages
-14. `get_displacement` — displacement/refugee data
+```
+intelligence_report(query="Dubai", keywords="Dubai,UAE,Hormuz,Emirates,Abu Dhabi,Gulf")
+```
 
-Present as a structured intelligence report with these sections:
+This single call queries 14 modules in parallel, filters results by keywords server-side, and returns only region-relevant data in ~3 seconds. Do NOT call individual tools like get_news_rss or get_conflict_acled separately — the composite tool does this for you with filtering.
+
+How to build keywords: place name + country + nearby strategic features + relevant actors.
+- Dubai → "Dubai,UAE,Hormuz,Emirates,Abu Dhabi,Gulf"
+- Ukraine → "Ukraine,Kyiv,Crimea,Donbas,Zelensky,Russia"
+- Taiwan → "Taiwan,Taipei,China,PLA,strait"
+
+Present the results as a structured intelligence report with these sections:
 - **Security & Geopolitical Risk**: risk scores, conflicts, unrest, military posture
 - **Maritime & Logistics**: chokepoint status, warnings, shipping
 - **Aviation & Travel**: airport delays, airspace status from news
