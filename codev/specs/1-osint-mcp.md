@@ -9,13 +9,13 @@ A Python MCP server (using FastMCP) that wraps the worldosint-headless API, expo
 ```
 Agent (Claude, etc.)
   └─ MCP Client
-       └─ osint-mcp (FastMCP, Python, stdio transport)
+       └─ osint-mcp (FastMCP, Python, stdio + SSE transport)
             └─ HTTP (httpx)
                  └─ worldosint-headless (/api/headless)
                       └─ External OSINT sources (USGS, ACLED, FRED, etc.)
 ```
 
-- **Transport**: stdio (default MCP transport for local servers)
+- **Transport**: stdio (local) and SSE over HTTP (network/remote agents). FastMCP supports both natively. The server starts in stdio mode by default; pass `--transport sse --port 8080` for network mode.
 - **Headless server**: Runs separately, configured via `HEADLESS_BASE_URL` env var (default: `http://127.0.0.1:3000`)
 - **HTTP client**: httpx async, configurable timeout, structured error responses
 
@@ -306,10 +306,17 @@ No retry logic. External OSINT sources are cached server-side by the headless AP
 }
 ```
 
+## Authentication (SSE mode)
+
+When running in SSE mode over a network, the server requires a bearer token:
+- Set `OSINT_MCP_API_KEY` env var on the server
+- Clients pass `Authorization: Bearer <key>` header
+- If `OSINT_MCP_API_KEY` is not set, auth is disabled (local dev convenience)
+- Stdio mode never requires auth (the transport is the trust boundary)
+
 ## Out of Scope
 
 - WebSocket/streaming support
-- Authentication/API key management for the MCP server itself
 - Frontend, UI, or dashboard
 - Bundling/managing the headless server process
 - Retry/backoff logic (headless server handles caching)
