@@ -1041,10 +1041,52 @@ const MODULES = {
     run: (ctx) => fetchJson(ctx.origin, '/api/infrastructure/v1/list-service-statuses', {}),
   },
   cyber_threats: {
-    description: 'Cyber threat IOCs',
-    run: (ctx, params) => fetchJson(ctx.origin, '/api/cyber/v1/list-cyber-threats', {
-      limit: params.limit ?? 200,
-    }),
+    description: 'Cyber threat IOCs from Feodo C2 tracker + internal feeds',
+    run: async (ctx, params) => {
+      const limit = Number(params.limit || 100);
+      // Try internal RPC first
+      let threats = [];
+      try {
+        const rpc = await fetchJson(ctx.origin, '/api/cyber/v1/list-cyber-threats', { limit });
+        threats = rpc?.threats || [];
+      } catch { /* fall through */ }
+
+      // Enrich with direct Feodo tracker (full blocklist, not just recommended)
+      if (threats.length < 10) {
+        for (const feedUrl of [
+          'https://feodotracker.abuse.ch/downloads/ipblocklist.json',
+          'https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.json',
+        ]) {
+          try {
+            const resp = await fetch(feedUrl, { signal: AbortSignal.timeout(10000) });
+            if (!resp.ok) continue;
+            const feodo = await resp.json();
+            const existing = new Set(threats.map((t) => t.indicator));
+            const feodoThreats = (Array.isArray(feodo) ? feodo : [])
+              .filter((e) => e.ip_address && !existing.has(e.ip_address))
+              .slice(0, limit - threats.length)
+              .map((e) => ({
+                id: `feodo:${e.ip_address}:${e.port || ''}`,
+                indicator: e.ip_address,
+                indicatorType: 'ip',
+                port: e.port || null,
+                malwareFamily: e.malware || '',
+                status: e.status || '',
+                country: e.country || '',
+                asName: e.as_name || '',
+                firstSeen: e.first_seen || '',
+                lastOnline: e.last_online || '',
+                source: 'feodo_direct',
+                severity: 'high',
+              }));
+            threats.push(...feodoThreats);
+            if (threats.length >= 10) break;
+          } catch { continue; }
+        }
+      }
+
+      return { threats: threats.slice(0, limit), count: threats.length, source: 'cyber_threats (RPC + Feodo direct)' };
+    },
   },
   markets: {
     description: 'Market quotes',
@@ -2317,20 +2359,35 @@ const MODULES = {
     },
   },
   imf_data: {
-    description: 'IMF macroeconomic data (inflation, GDP growth, debt)',
+    description: 'IMF macroeconomic data (inflation, GDP growth, debt). Use 2 or 3 letter country code.',
     run: async (_ctx, params) => {
-      const country = params.query || params.country || '';
-      if (!country) throw new Error('query parameter required (ISO country code, e.g. "US")');
+      const rawCountry = (params.query || params.country || '').toUpperCase().trim();
+      if (!rawCountry) throw new Error('query parameter required (country code, e.g. "US" or "USA")');
       const indicator = params.indicator || 'NGDP_RPCH';
+      // IMF uses 3-letter ISO codes; map common 2-letter to 3-letter
+      const ISO2_TO_3 = {
+        US: 'USA', GB: 'GBR', DE: 'DEU', FR: 'FRA', JP: 'JPN', CN: 'CHN',
+        IN: 'IND', BR: 'BRA', RU: 'RUS', AU: 'AUS', CA: 'CAN', KR: 'KOR',
+        MX: 'MEX', ID: 'IDN', TR: 'TUR', SA: 'SAU', AE: 'ARE', IL: 'ISR',
+        IR: 'IRN', UA: 'UKR', PK: 'PAK', EG: 'EGY', NG: 'NGA', ZA: 'ZAF',
+        AR: 'ARG', CL: 'CHL', CO: 'COL', PE: 'PER', VE: 'VEN', TH: 'THA',
+        MY: 'MYS', SG: 'SGP', PH: 'PHL', VN: 'VNM', BD: 'BGD', PL: 'POL',
+        SE: 'SWE', NO: 'NOR', FI: 'FIN', NZ: 'NZL', IE: 'IRL', CH: 'CHE',
+        NL: 'NLD', IT: 'ITA', ES: 'ESP', GR: 'GRC', QA: 'QAT', KW: 'KWT',
+        BH: 'BHR', OM: 'OMN', JO: 'JOR', IQ: 'IRQ', SY: 'SYR', LB: 'LBN',
+        AF: 'AFG', KP: 'PRK', MM: 'MMR', ET: 'ETH', KE: 'KEN', SD: 'SDN',
+      };
+      const country = ISO2_TO_3[rawCountry] || rawCountry;
       const url = `https://www.imf.org/external/datamapper/api/v1/${encodeURIComponent(indicator)}/${encodeURIComponent(country)}`;
       const data = await fetchJsonUrl(url, { timeoutMs: 15000 });
       const values = data?.values?.[indicator]?.[country] || {};
       const latest = pickLatestYearEntry(values);
       return {
         country,
+        countryInput: rawCountry,
         indicator,
-        values,
         latest,
+        values,
       };
     },
   },
