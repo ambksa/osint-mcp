@@ -349,7 +349,8 @@ TOOL_REGISTRY: list[dict] = [
     {
         "tool_name": "get_sanctions",
         "module_id": "sanctions_ofac",
-        "description": "Get OFAC SDN sanctions list — designated persons, vessels, aircraft.",
+        "description": "Search OFAC SDN sanctions list by name, country, or program (e.g. 'Iran', 'RUSSIA', 'DPRK'). Without query returns recent entries.",
+        "required_params": {"query": str},
     },
     # ── Security & Health Advisories ───────────────────────────────────
     {

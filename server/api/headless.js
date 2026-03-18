@@ -1841,8 +1841,9 @@ const MODULES = {
 
   // ── Spec 3: Sanctions ──────────────────────────────────────────────
   sanctions_ofac: {
-    description: 'OFAC SDN sanctions list — designated persons, vessels, aircraft',
-    run: async () => {
+    description: 'OFAC SDN sanctions search. Use query to search by name, country, or program (e.g. "Iran", "RUSSIA"). Without query returns recent entries.',
+    run: async (_ctx, params) => {
+      const query = (params.query ?? '').toLowerCase().trim();
       const resp = await fetch(
         'https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML',
         {
@@ -1854,27 +1855,43 @@ const MODULES = {
       if (!resp.ok) throw new Error(`OFAC HTTP ${resp.status}: ${text.slice(0, 220)}`);
       const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
       const parsed = parser.parse(text);
-      // SDN XML structure: sdnList > sdnEntry[]
       const root = parsed?.sdnList || parsed?.SdnList || parsed;
       const entries = root?.sdnEntry || root?.SdnEntry || [];
       const list = Array.isArray(entries) ? entries : [entries].filter(Boolean);
-      // Return first 200 entries to keep response manageable
-      const truncated = list.slice(0, 200);
+
+      const mapEntry = (e) => ({
+        uid: e['@_uid'] || e.uid || '',
+        lastName: e.lastName || '',
+        firstName: e.firstName || '',
+        sdnType: e.sdnType || '',
+        programList: e.programList?.program
+          ? (Array.isArray(e.programList.program) ? e.programList.program : [e.programList.program])
+          : [],
+        title: e.title || '',
+        remarks: (e.remarks || '').slice(0, 300),
+      });
+
+      let matched;
+      if (query) {
+        matched = list.filter((e) => {
+          const searchText = [
+            e.firstName, e.lastName, e.sdnType, e.title, e.remarks,
+            JSON.stringify(e.programList || {}),
+            JSON.stringify(e.addressList || {}),
+            JSON.stringify(e.akaList || {}),
+          ].join(' ').toLowerCase();
+          return searchText.includes(query);
+        }).slice(0, 100).map(mapEntry);
+      } else {
+        matched = list.slice(-50).map(mapEntry);
+      }
+
       return {
-        entries: truncated.map((e) => ({
-          uid: e['@_uid'] || e.uid || '',
-          lastName: e.lastName || '',
-          firstName: e.firstName || '',
-          sdnType: e.sdnType || '',
-          programList: e.programList?.program
-            ? (Array.isArray(e.programList.program) ? e.programList.program : [e.programList.program])
-            : [],
-          title: e.title || '',
-          remarks: (e.remarks || '').slice(0, 300),
-        })),
-        count: truncated.length,
+        entries: matched,
+        count: matched.length,
         totalEntries: list.length,
-        source: 'OFAC SDN',
+        query: query || undefined,
+        source: 'OFAC SDN (sanctionslistservice.ofac.treas.gov)',
       };
     },
   },
