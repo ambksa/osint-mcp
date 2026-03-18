@@ -355,7 +355,8 @@ TOOL_REGISTRY: list[dict] = [
     {
         "tool_name": "get_travel_advisories",
         "module_id": "travel_advisories",
-        "description": "Get government travel advisories from US State Dept, UK FCDO, NZ MFAT.",
+        "description": "Get government travel advisories from US State Dept, UK FCDO, NZ MFAT. Query filters by country name (e.g. 'Saudi Arabia', 'Iran').",
+        "required_params": {"query": str},
     },
     {
         "tool_name": "get_health_advisories",

@@ -1653,8 +1653,9 @@ const MODULES = {
 
   // ── Security & Health Advisories ──────────────────────────────────
   travel_advisories: {
-    description: 'Government travel advisories from US State Dept, UK FCDO, NZ MFAT',
-    run: async (ctx) => {
+    description: 'Government travel advisories from US State Dept, UK FCDO, NZ MFAT. Optional query to filter by country.',
+    run: async (ctx, params) => {
+      const query = (params.query ?? '').toLowerCase().trim();
       const feeds = [
         'https://travel.state.gov/_res/rss/TAsTWs.xml',
         'https://www.gov.uk/foreign-travel-advice.atom',
@@ -1683,11 +1684,14 @@ const MODULES = {
         }));
       });
       const settled = await Promise.allSettled(feedPromises);
-      const items = [];
+      let items = [];
       for (const s of settled) {
         if (s.status === 'fulfilled') items.push(...s.value);
       }
-      return { items, feedCount: feeds.length };
+      if (query) {
+        items = items.filter((i) => (i.title || '').toLowerCase().includes(query) || String(i.link || '').toLowerCase().includes(query));
+      }
+      return { items, feedCount: feeds.length, query: query || undefined };
     },
   },
   health_advisories: {
