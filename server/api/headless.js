@@ -792,19 +792,18 @@ const MODULES = {
     },
   },
   intelligence_findings: {
-    description: 'Aggregated intelligence findings from multiple modules (alerts + signals)',
+    description: 'Aggregated intelligence findings from all working OSINT modules — prioritized alerts',
     run: async (ctx, params) => {
       const findings = [];
       const now = Date.now();
+      const limit = Number(params.limit || 50);
 
-      const modulesToPull = params.modules || [
-        'conflict_acled',
-        'unrest_events',
+      // Pull from ALL working modules in parallel
+      const modulesToPull = [
+        'cyber_threats', 'cisa_kev', 'ransomware_posts', 'threatfox_iocs',
+        'seismology_earthquakes', 'natural_events_gdacs', 'weather_alerts',
+        'embassy_alerts', 'health_advisories', 'defense_news',
         'infrastructure_outages',
-        'maritime_warnings',
-        'cyber_threats',
-        'seismology_earthquakes',
-        'intelligence_risk_scores',
       ];
 
       const results = {};
@@ -812,55 +811,164 @@ const MODULES = {
         modulesToPull.map(async (name) => {
           const mod = MODULES[name];
           if (!mod) return { name, data: null };
-          const data = await mod.run(ctx, params[name] || {});
+          const data = await mod.run(ctx, { limit: 50, ...(params[name] || {}) });
           return { name, data };
         })
       );
       for (const s of settled) {
-        if (s.status === 'fulfilled' && s.value.data !== null) {
+        if (s.status === 'fulfilled' && s.value?.data !== null) {
           results[s.value.name] = s.value.data;
-        } else if (s.status === 'rejected') {
-          // Promise.allSettled preserves order — use index to recover module name
-          const idx = settled.indexOf(s);
-          results[modulesToPull[idx]] = { error: s.reason?.message || String(s.reason) };
         }
       }
 
-      const conflictEvents = results.conflict_acled?.events || [];
-      if (conflictEvents.length > 0) {
+      // ── CISA KEV: recently added exploited vulnerabilities ────
+      const kevs = results.cisa_kev?.vulnerabilities || [];
+      const sevenDaysAgo = new Date(now - 7 * 86400000).toISOString().split('T')[0];
+      for (const v of kevs) {
+        const added = v.dateAdded || '';
+        if (added < sevenDaysAgo) continue;
         findings.push({
-          id: `conflict-${now}`,
-          type: 'conflict_acled',
-          title: 'Conflict activity detected',
-          summary: `${conflictEvents.length} conflict events in ACLED feed`,
+          id: `kev-${v.cveID || v.cveId || now}`,
+          type: 'exploited_vulnerability',
+          title: `Actively exploited: ${v.cveID || v.cveId} (${v.vendor || ''} ${v.product || ''})`.trim(),
+          summary: (v.shortDescription || v.vulnerabilityName || '').slice(0, 200),
           priority: 'high',
-          confidence: 0.8,
+          confidence: 0.95,
           timestamp: now,
-          source: 'conflict_acled',
+          source: 'cisa_kev',
         });
       }
 
-      const unrestEvents = results.unrest_events?.events || [];
-      if (unrestEvents.length > 0) {
+      // ── Ransomware posts ──────────────────────────────────────
+      const ransomPosts = results.ransomware_posts?.posts || [];
+      if (ransomPosts.length > 0) {
+        // Group by gang
+        const gangs = {};
+        for (const p of ransomPosts.slice(0, 20)) {
+          const g = p.group || p.group_name || 'unknown';
+          gangs[g] = (gangs[g] || 0) + 1;
+        }
+        const topGangs = Object.entries(gangs).sort((a, b) => b[1] - a[1]).slice(0, 5);
         findings.push({
-          id: `unrest-${now}`,
-          type: 'unrest_events',
-          title: 'Unrest activity detected',
-          summary: `${unrestEvents.length} unrest events in feed`,
-          priority: 'medium',
-          confidence: 0.7,
+          id: `ransom-${now}`,
+          type: 'ransomware_activity',
+          title: `${ransomPosts.length} ransomware victim posts in last 7 days`,
+          summary: `Top groups: ${topGangs.map(([g, c]) => `${g}(${c})`).join(', ')}`,
+          priority: 'high',
+          confidence: 0.85,
           timestamp: now,
-          source: 'unrest_events',
+          source: 'ransomware_posts',
         });
       }
 
+      // ── Cyber threats (Feodo C2) ──────────────────────────────
+      const threats = results.cyber_threats?.threats || [];
+      for (const t of threats.slice(0, 10)) {
+        findings.push({
+          id: `cyber-${t.id || t.indicator || now}`,
+          type: 'cyber_threat',
+          title: `C2 Server: ${t.indicator || '?'} (${t.malwareFamily || 'malware'})`,
+          summary: `${t.country || '?'} — ${t.asName || t.source || ''}`.trim(),
+          priority: severityToPriority(t.severity),
+          confidence: 0.75,
+          timestamp: now,
+          source: 'cyber_threats',
+        });
+      }
+
+      // ── Earthquakes (M ≥ 5.5) ────────────────────────────────
+      const quakes = results.seismology_earthquakes?.earthquakes || [];
+      for (const q of quakes) {
+        const mag = Number(q.magnitude || 0);
+        if (mag < 5.5) continue;
+        findings.push({
+          id: `quake-${q.id || now}`,
+          type: 'earthquake',
+          title: `Earthquake M${mag.toFixed(1)}`,
+          summary: `${q.place || 'Unknown'} — depth ${Number(q.depthKm || 0).toFixed(0)} km`,
+          priority: mag >= 7 ? 'critical' : mag >= 6 ? 'high' : 'medium',
+          confidence: 0.95,
+          timestamp: q.occurredAt || now,
+          source: 'seismology_earthquakes',
+        });
+      }
+
+      // ── GDACS disaster alerts (Orange or Red) ────────────────
+      const gdacs = results.natural_events_gdacs?.events || results.natural_events_gdacs?.alerts || [];
+      const alertLevelMap = { red: 3, orange: 2, green: 1 };
+      for (const a of gdacs.slice(0, 20)) {
+        const level = alertLevelMap[(a.alertLevel || '').toLowerCase()] || 0;
+        if (level < 2) continue; // Only Orange+ alerts
+        findings.push({
+          id: `gdacs-${a.id || now}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'disaster',
+          title: (a.name || a.title || 'Disaster alert').slice(0, 100),
+          summary: `${a.type || '?'} in ${a.country || '?'} — Alert: ${a.alertLevel || '?'}`,
+          priority: level >= 3 ? 'critical' : 'high',
+          confidence: 0.85,
+          timestamp: a.date || now,
+          source: 'natural_events_gdacs',
+        });
+      }
+
+      // ── Weather alerts (Extreme only) ─────────────────────────
+      const weather = results.weather_alerts?.alerts || [];
+      for (const w of weather.slice(0, 10)) {
+        const sev = (w.severity || '').toLowerCase();
+        if (sev !== 'extreme') continue;
+        findings.push({
+          id: `wx-${w.id || now}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'severe_weather',
+          title: (w.event || w.headline || 'Extreme weather').slice(0, 100),
+          summary: (w.description || w.areaDesc || '').slice(0, 200),
+          priority: 'high',
+          confidence: 0.9,
+          timestamp: w.onset || w.effective || now,
+          source: 'weather_alerts',
+        });
+      }
+
+      // ── Embassy alerts (skip error/empty items) ──────────────
+      const embassy = (results.embassy_alerts?.items || []).filter((e) => e.title && !e.error);
+      for (const e of embassy.slice(0, 10)) {
+        findings.push({
+          id: `embassy-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'diplomatic_alert',
+          title: (e.title || '').slice(0, 100),
+          summary: `${e.country || ''} — ${(e.description || '').replace(/<[^>]*>/g, '').slice(0, 150)}`.trim(),
+          priority: 'medium',
+          confidence: 0.8,
+          timestamp: e.pubDate || now,
+          source: 'embassy_alerts',
+        });
+      }
+
+      // ── Health advisories (outbreaks) ─────────────────────────
+      const health = results.health_advisories?.items || [];
+      for (const h of health.slice(0, 5)) {
+        const title = h.title || '';
+        // Only include outbreak/alert items, not general health news
+        if (!/outbreak|alert|emergency|epidemic|pandemic|warning/i.test(title)) continue;
+        findings.push({
+          id: `health-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'health_alert',
+          title: title.slice(0, 100),
+          summary: (h.description || '').replace(/<[^>]*>/g, '').slice(0, 200),
+          priority: 'medium',
+          confidence: 0.8,
+          timestamp: h.pubDate || now,
+          source: 'health_advisories',
+        });
+      }
+
+      // ── Infrastructure outages ────────────────────────────────
       const outages = results.infrastructure_outages?.outages || [];
       if (outages.length > 0) {
         findings.push({
           id: `outage-${now}`,
-          type: 'infrastructure_outages',
-          title: 'Internet outage detected',
-          summary: `${outages.length} outage(s) reported`,
+          type: 'infrastructure_outage',
+          title: `${outages.length} internet outage(s) detected`,
+          summary: outages.slice(0, 3).map((o) => o.country || o.region || '?').join(', '),
           priority: 'high',
           confidence: 0.8,
           timestamp: now,
@@ -868,75 +976,15 @@ const MODULES = {
         });
       }
 
-      const warnings = results.maritime_warnings?.warnings || [];
-      if (warnings.length > 0) {
-        findings.push({
-          id: `maritime-${now}`,
-          type: 'maritime_warnings',
-          title: 'Navigational warning issued',
-          summary: `${warnings.length} maritime warning(s)`,
-          priority: 'medium',
-          confidence: 0.7,
-          timestamp: now,
-          source: 'maritime_warnings',
-        });
-      }
-
-      const threats = results.cyber_threats?.threats || [];
-      for (const threat of threats) {
-        findings.push({
-          id: `cyber-${threat.id || threat.indicator || now}`,
-          type: 'cyber_threat',
-          title: `Cyber IOC: ${threat.indicator || threat.id || 'indicator'}`,
-          summary: `${threat.malwareFamily || 'IOC'} severity ${threat.severity || 'unknown'}`,
-          priority: severityToPriority(threat.severity),
-          confidence: 0.75,
-          timestamp: now,
-          source: 'cyber_threats',
-          payload: threat,
-        });
-      }
-
-      const quakes = results.seismology_earthquakes?.earthquakes || [];
-      for (const quake of quakes) {
-        const mag = Number(quake.magnitude || 0);
-        if (mag < 5.5) continue;
-        const priority = mag >= 7 ? 'critical' : mag >= 6 ? 'high' : 'medium';
-        findings.push({
-          id: `quake-${quake.id || now}`,
-          type: 'seismic',
-          title: `Earthquake M${mag.toFixed(1)}`,
-          summary: `${quake.place || 'Unknown'} depth ${Number(quake.depthKm || 0).toFixed(1)} km`,
-          priority,
-          confidence: 0.9,
-          timestamp: quake.occurredAt || now,
-          source: 'seismology_earthquakes',
-          payload: quake,
-        });
-      }
-
-      const riskScores = results.intelligence_risk_scores?.strategicRisks || [];
-      for (const risk of riskScores) {
-        const score = Number(risk.score || 0);
-        if (score < 60) continue;
-        const priority = score >= 75 ? 'high' : 'medium';
-        findings.push({
-          id: `risk-${risk.region || now}`,
-          type: 'strategic_risk',
-          title: `Strategic risk: ${risk.region || 'unknown'}`,
-          summary: `score ${score} trend ${risk.trend || 'unknown'}`,
-          priority,
-          confidence: 0.7,
-          timestamp: now,
-          source: 'intelligence_risk_scores',
-          payload: risk,
-        });
-      }
+      // Sort: critical → high → medium → low, then by timestamp
+      const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      findings.sort((a, b) => (prioOrder[a.priority] || 9) - (prioOrder[b.priority] || 9));
 
       return {
-        findings,
+        findings: findings.slice(0, limit),
         summary: buildFindingsSummary(findings),
-        sources: Object.keys(results),
+        sources: Object.keys(results).filter((k) => !results[k]?.error),
+        sourceErrors: Object.entries(results).filter(([, v]) => v?.error).map(([k, v]) => `${k}: ${v.error}`),
       };
     },
   },
