@@ -395,6 +395,62 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "us_treasury",
         "description": "Get Monthly Treasury Statement data (receipts, outlays, deficit).",
     },
+    # ── Satellite Imagery ──────────────────────────────────────────────
+    {
+        "tool_name": "get_satellite_search",
+        "module_id": "satellite_search",
+        "description": "Search Sentinel-2 satellite imagery by bounding box. Requires bbox (west,south,east,north).",
+        "required_params": {"bbox": str},
+    },
+    # ── Geopolitical Context ───────────────────────────────────────────
+    {
+        "tool_name": "get_worldbank",
+        "module_id": "worldbank_indicators",
+        "description": "Get World Bank development indicators (GDP, population, etc.). Requires query (country code) and indicator (e.g. NY.GDP.MKTP.CD).",
+        "required_params": {"query": str, "indicator": str},
+    },
+    {
+        "tool_name": "get_imf_data",
+        "module_id": "imf_data",
+        "description": "Get IMF macroeconomic data (inflation, GDP growth, debt). Requires query (country code) and indicator (e.g. NGDP_RPCH).",
+        "required_params": {"query": str, "indicator": str},
+    },
+    # ── News Extended ──────────────────────────────────────────────────
+    {
+        "tool_name": "get_aviation_news",
+        "module_id": "aviation_news",
+        "description": "Get aviation industry news from multiple RSS feeds.",
+    },
+    {
+        "tool_name": "get_defense_news",
+        "module_id": "defense_news",
+        "description": "Get military and defense news from multiple RSS feeds.",
+    },
+    # ── Enrichment ─────────────────────────────────────────────────────
+    {
+        "tool_name": "get_sec_filings",
+        "module_id": "sec_filings",
+        "description": "Search SEC EDGAR company filings (8-K, 10-K, 10-Q). Requires query (company name or ticker).",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_github_activity",
+        "module_id": "github_activity",
+        "description": "Get GitHub organization public events. Requires query (org name).",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_hn_search",
+        "module_id": "hn_search",
+        "description": "Search Hacker News stories. Requires query (search term).",
+        "required_params": {"query": str},
+    },
+    # ── Correlation ────────────────────────────────────────────────────
+    {
+        "tool_name": "get_news_velocity",
+        "module_id": "news_velocity",
+        "description": "Get news velocity scoring — article frequency per topic with anomaly detection.",
+    },
 ]
 
 
@@ -405,8 +461,20 @@ def _make_tool_fn(module_id: str, required_params: dict, client: HeadlessClient)
     """
     has_required_query = "query" in required_params
     has_required_bbox = "bbox" in required_params
+    has_required_indicator = "indicator" in required_params
 
-    if has_required_query:
+    if has_required_query and has_required_indicator:
+        async def tool_fn(
+            query: str,
+            indicator: str,
+            limit: int | None = None,
+            format: str = "json",
+        ) -> dict:
+            return await client.query_module(module_id, {
+                "query": query, "indicator": indicator,
+                "limit": limit, "format": format,
+            })
+    elif has_required_query:
         async def tool_fn(
             query: str,
             limit: int | None = None,

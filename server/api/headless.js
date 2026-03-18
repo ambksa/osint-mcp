@@ -1932,6 +1932,296 @@ const MODULES = {
       };
     },
   },
+
+
+    // ── Satellite Imagery ─────────────────────────────────────────────
+  satellite_search: {
+    description: 'Search Sentinel-2 satellite imagery by bounding box (STAC API)',
+    run: async (_ctx, params) => {
+      const bboxStr = params.bbox || '';
+      if (!bboxStr) throw new Error('bbox parameter required (e.g. "12.0,41.0,13.0,42.0")');
+      const bbox = String(bboxStr).split(',').map(Number);
+      if (bbox.length !== 4 || bbox.some((n) => !Number.isFinite(n))) {
+        throw new Error('bbox must be 4 comma-separated numbers: west,south,east,north');
+      }
+      const limit = Number(params.limit ?? 10);
+      const body = JSON.stringify({
+        collections: ['sentinel-2-l2a'],
+        bbox,
+        limit,
+      });
+      const data = await fetchJsonUrl('https://earth-search.aws.element84.com/v1/search', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 15000,
+      });
+      const features = (data.features || []).map((f) => ({
+        id: f.id,
+        datetime: f.properties?.datetime,
+        cloudCover: f.properties?.['eo:cloud_cover'],
+        thumbnail: f.assets?.thumbnail?.href || null,
+        preview: f.assets?.visual?.href || f.assets?.overview?.href || null,
+        bbox: f.bbox,
+      }));
+      return { scenes: features, matched: data.numberMatched || features.length };
+    },
+  },
+
+  // ── Geopolitical Context ──────────────────────────────────────────
+  worldbank_indicators: {
+    description: 'World Bank development indicators (GDP, population, etc.)',
+    run: async (_ctx, params) => {
+      const code = params.query || params.code || '';
+      if (!code) throw new Error('query parameter required (ISO country code, e.g. "US")');
+      const indicator = params.indicator || 'NY.GDP.MKTP.CD';
+      const url = `https://api.worldbank.org/v2/country/${encodeURIComponent(code)}/indicator/${encodeURIComponent(indicator)}?format=json&per_page=10&mrv=5`;
+      const data = await fetchJsonUrl(url, { timeoutMs: 15000 });
+      const records = Array.isArray(data) && data.length > 1 ? data[1] : [];
+      return {
+        country: code,
+        indicator,
+        records: (records || []).map((r) => ({
+          year: r.date,
+          value: r.value,
+          indicator: r.indicator?.id,
+          indicatorName: r.indicator?.value,
+          country: r.country?.value,
+        })),
+      };
+    },
+  },
+  imf_data: {
+    description: 'IMF macroeconomic data (inflation, GDP growth, debt)',
+    run: async (_ctx, params) => {
+      const country = params.query || params.country || '';
+      if (!country) throw new Error('query parameter required (ISO country code, e.g. "US")');
+      const indicator = params.indicator || 'NGDP_RPCH';
+      const url = `https://www.imf.org/external/datamapper/api/v1/${encodeURIComponent(indicator)}/${encodeURIComponent(country)}`;
+      const data = await fetchJsonUrl(url, { timeoutMs: 15000 });
+      const values = data?.values?.[indicator]?.[country] || {};
+      const latest = pickLatestYearEntry(values);
+      return {
+        country,
+        indicator,
+        values,
+        latest,
+      };
+    },
+  },
+
+  // ── News Extended ─────────────────────────────────────────────────
+  aviation_news: {
+    description: 'Aviation industry news from multiple RSS feeds',
+    run: async (ctx, params) => {
+      const feeds = [
+        'https://news.google.com/rss/search?q=aviation+airlines+when:7d&hl=en-US&gl=US&ceid=US:en',
+        'https://news.google.com/rss/search?q=site:simpleflying.com+when:7d&hl=en-US&gl=US&ceid=US:en',
+        'https://www.aerotime.aero/feed',
+        'https://news.google.com/rss/search?q=site:flightglobal.com+when:7d&hl=en-US&gl=US&ceid=US:en',
+      ];
+      const limitPerFeed = Number(params.limit_per_feed ?? 15);
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const feedPromises = feeds.map(async (feedUrl) => {
+        try {
+          const proxied = `${ctx.origin}/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+          const resp = await fetch(proxied, {
+            headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const xml = await resp.text();
+          const data = parser.parse(xml) || {};
+          const channel = data.rss?.channel || data.channel;
+          const channelTitle = channel?.title || data.feed?.title || '';
+          const items = channel?.item || data.feed?.entry || [];
+          const list = Array.isArray(items) ? items : [items].filter(Boolean);
+          return list.slice(0, limitPerFeed).map((item) => ({
+            title: item.title || '',
+            link: item.link?.['@_href'] || item.link?.href || item.link || '',
+            pubDate: item.pubDate || item.published || item.updated || '',
+            source: channelTitle || '',
+            feed: feedUrl,
+          }));
+        } catch (error) {
+          return [{ title: '', link: '', pubDate: '', source: '', feed: feedUrl, error: error?.message || String(error) }];
+        }
+      });
+      const settled = await Promise.allSettled(feedPromises);
+      const items = settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
+      return { items, feedCount: feeds.length };
+    },
+  },
+  defense_news: {
+    description: 'Military and defense news from multiple RSS feeds',
+    run: async (ctx, params) => {
+      const feeds = [
+        'https://www.defenseone.com/rss/all/',
+        'https://www.thedrive.com/the-war-zone/feed',
+        'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml',
+        'https://gcaptain.com/feed/',
+        'https://www.oryxspioenkop.com/feeds/posts/default?alt=rss',
+      ];
+      const limitPerFeed = Number(params.limit_per_feed ?? 15);
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const feedPromises = feeds.map(async (feedUrl) => {
+        try {
+          const proxied = `${ctx.origin}/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+          const resp = await fetch(proxied, {
+            headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const xml = await resp.text();
+          const data = parser.parse(xml) || {};
+          const channel = data.rss?.channel || data.channel;
+          const channelTitle = channel?.title || data.feed?.title || '';
+          const items = channel?.item || data.feed?.entry || [];
+          const list = Array.isArray(items) ? items : [items].filter(Boolean);
+          return list.slice(0, limitPerFeed).map((item) => ({
+            title: item.title || '',
+            link: item.link?.['@_href'] || item.link?.href || item.link || '',
+            pubDate: item.pubDate || item.published || item.updated || '',
+            source: channelTitle || '',
+            feed: feedUrl,
+          }));
+        } catch (error) {
+          return [{ title: '', link: '', pubDate: '', source: '', feed: feedUrl, error: error?.message || String(error) }];
+        }
+      });
+      const settled = await Promise.allSettled(feedPromises);
+      const items = settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
+      return { items, feedCount: feeds.length };
+    },
+  },
+
+  // ── Enrichment ────────────────────────────────────────────────────
+  sec_filings: {
+    description: 'SEC EDGAR company filings search (8-K, 10-K, 10-Q)',
+    run: async (_ctx, params) => {
+      const query = params.query || '';
+      if (!query) throw new Error('query parameter required (company name or ticker)');
+      const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(query)}&forms=8-K,10-K,10-Q`;
+      const data = await fetchJsonUrl(url, {
+        timeoutMs: 15000,
+        headers: { 'User-Agent': 'osint-mcp/1.0 (research tool)', Accept: 'application/json' },
+      });
+      const hits = data.hits?.hits || data.hits || [];
+      return {
+        query,
+        total: data.hits?.total?.value || (Array.isArray(hits) ? hits.length : 0),
+        filings: (Array.isArray(hits) ? hits : []).slice(0, 20).map((h) => ({
+          id: h._id,
+          form: h._source?.form_type || h._source?.file_type,
+          company: h._source?.entity_name || h._source?.display_names?.[0],
+          date: h._source?.file_date || h._source?.period_of_report,
+          description: h._source?.file_description || '',
+        })),
+      };
+    },
+  },
+  github_activity: {
+    description: 'GitHub organization public events',
+    run: async (_ctx, params) => {
+      const org = params.query || params.org || '';
+      if (!org) throw new Error('query parameter required (GitHub org name)');
+      const url = `https://api.github.com/orgs/${encodeURIComponent(org)}/events`;
+      const data = await fetchJsonUrl(url, {
+        timeoutMs: 15000,
+        headers: { 'User-Agent': 'osint-mcp/1.0', Accept: 'application/vnd.github+json' },
+      });
+      const events = Array.isArray(data) ? data : [];
+      return {
+        org,
+        eventCount: events.length,
+        events: events.slice(0, 30).map((e) => ({
+          type: e.type,
+          actor: e.actor?.login,
+          repo: e.repo?.name,
+          createdAt: e.created_at,
+          payload: e.type === 'PushEvent'
+            ? { commits: (e.payload?.commits || []).map((c) => ({ sha: c.sha?.slice(0, 7), message: c.message })) }
+            : e.type === 'PullRequestEvent'
+              ? { action: e.payload?.action, title: e.payload?.pull_request?.title }
+              : e.type === 'IssuesEvent'
+                ? { action: e.payload?.action, title: e.payload?.issue?.title }
+                : undefined,
+        })),
+      };
+    },
+  },
+  hn_search: {
+    description: 'Search Hacker News stories (Algolia)',
+    run: async (_ctx, params) => {
+      const query = params.query || params.q || '';
+      if (!query) throw new Error('query parameter required (search term)');
+      const limit = Number(params.limit ?? 20);
+      const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${limit}`;
+      const data = await fetchJsonUrl(url, { timeoutMs: 15000 });
+      return {
+        query,
+        total: data.nbHits || 0,
+        stories: (data.hits || []).map((h) => ({
+          title: h.title,
+          url: h.url,
+          author: h.author,
+          points: h.points,
+          comments: h.num_comments,
+          createdAt: h.created_at,
+          hnUrl: `https://news.ycombinator.com/item?id=${h.objectID}`,
+        })),
+      };
+    },
+  },
+
+  // ── Correlation ───────────────────────────────────────────────────
+  news_velocity: {
+    description: 'News velocity scoring — article frequency per topic, anomaly detection',
+    run: async (ctx, params) => {
+      const keywords = (params.keywords || params.query || 'war,sanctions,earthquake,cyber,military')
+        .split(',').map((k) => k.trim()).filter(Boolean);
+
+      // Fetch news_rss internally
+      const newsModule = MODULES.news_rss;
+      const newsData = await newsModule.run(ctx, { max_total: 300 });
+      const articles = newsData?.items || [];
+      const now = Date.now();
+      const windowHours = Number(params.window_hours ?? 24);
+      const windowMs = windowHours * 3600000;
+
+      // Count articles matching each keyword within the time window
+      const velocities = keywords.map((keyword) => {
+        const kw = keyword.toLowerCase();
+        const matching = articles.filter((a) => {
+          const title = (a.title || '').toLowerCase();
+          const age = now - new Date(a.pubDate || 0).getTime();
+          return title.includes(kw) && age < windowMs && age >= 0;
+        });
+        const countPerHour = windowHours > 0 ? matching.length / windowHours : 0;
+        // Baseline: assume ~0.5 articles/hour/keyword for major news
+        const baseline = 0.5;
+        const velocityScore = baseline > 0 ? countPerHour / baseline : 0;
+        const isAnomaly = velocityScore > 3;
+        return {
+          keyword,
+          articleCount: matching.length,
+          countPerHour: Math.round(countPerHour * 100) / 100,
+          velocityScore: Math.round(velocityScore * 100) / 100,
+          isAnomaly,
+          sampleTitles: matching.slice(0, 3).map((a) => a.title),
+        };
+      });
+
+      const anomalies = velocities.filter((v) => v.isAnomaly);
+      return {
+        windowHours,
+        totalArticles: articles.length,
+        keywords: velocities,
+        anomalyCount: anomalies.length,
+        anomalies: anomalies.map((a) => a.keyword),
+      };
+    },
+  },
 };
 
 const CORE_MODULES = [
