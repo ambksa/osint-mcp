@@ -453,6 +453,35 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "news_velocity",
         "description": "Get news velocity scoring — article frequency per topic with anomaly detection.",
     },
+    # ── Real-Time Feeds ───────────────────────────────────────────────
+    {
+        "tool_name": "get_aircraft",
+        "module_id": "opensky_aircraft",
+        "description": "Get live aircraft positions from OpenSky ADS-B. Use bbox for region (e.g. '24,54,26,56' for Dubai) or query for callsign/country (e.g. 'United Arab Emirates').",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_submarine_cables",
+        "module_id": "submarine_cables",
+        "description": "Get global undersea cable map — 700+ cables. Use query to filter by name, owner, or region (e.g. 'gulf', 'google').",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_cisa_kev",
+        "module_id": "cisa_kev",
+        "description": "Search CISA Known Exploited Vulnerabilities. Query by vendor, product, or CVE ID (e.g. 'Microsoft', 'CVE-2024').",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_ransomware",
+        "module_id": "ransomware_posts",
+        "description": "Get recent ransomware group victim posts from RansomLook. Real-time extortion monitoring.",
+    },
+    {
+        "tool_name": "get_threatfox",
+        "module_id": "threatfox_iocs",
+        "description": "Get ThreatFox malware IOCs — C2 servers, malware URLs, hashes from abuse.ch.",
+    },
 ]
 
 

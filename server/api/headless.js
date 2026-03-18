@@ -1896,6 +1896,200 @@ const MODULES = {
     },
   },
 
+  // ── Real-Time Feeds ──────────────────────────────────────────────
+  opensky_aircraft: {
+    description: 'Live aircraft positions from OpenSky ADS-B network. Use bbox to filter by region.',
+    run: async (_ctx, params) => {
+      const bbox = params.bbox || '';
+      const qs = new URLSearchParams();
+      if (bbox) {
+        const parts = String(bbox).split(',').map(Number);
+        if (parts.length === 4) {
+          qs.set('lamin', parts[0]); qs.set('lomin', parts[1]);
+          qs.set('lamax', parts[2]); qs.set('lomax', parts[3]);
+        }
+      }
+      const url = `https://opensky-network.org/api/states/all${qs.toString() ? '?' + qs : ''}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) throw new Error(`OpenSky HTTP ${resp.status}`);
+      const data = await resp.json();
+      const states = Array.isArray(data?.states) ? data.states : [];
+      // Filter by query (callsign, country) if provided
+      const acQuery = (params.query ?? '').toLowerCase().trim();
+      let filtered = states;
+      if (acQuery) {
+        filtered = states.filter((s) =>
+          (s[1] || '').toLowerCase().includes(acQuery) ||
+          (s[2] || '').toLowerCase().includes(acQuery)
+        );
+      }
+      return {
+        aircraft: filtered.slice(0, Number(params.limit || 500)).map((s) => ({
+          icao24: s[0] || '',
+          callsign: (s[1] || '').trim(),
+          originCountry: s[2] || '',
+          longitude: s[5],
+          latitude: s[6],
+          altitudeM: s[7],
+          onGround: s[8],
+          velocityMs: s[9],
+          heading: s[10],
+          verticalRate: s[11],
+          squawk: s[14] || '',
+        })),
+        count: states.length,
+        timestamp: data.time,
+        source: 'OpenSky Network',
+      };
+    },
+  },
+  submarine_cables: {
+    description: 'Global undersea cable map — 700+ cables. Use query to filter by name, owner, or region.',
+    run: async (_ctx, params) => {
+      const query = (params.query ?? '').toLowerCase().trim();
+      const data = await fetchJsonUrl(
+        'https://www.submarinecablemap.com/api/v3/cable/cable-geo.json',
+        { timeoutMs: 20000 },
+      );
+      let features = Array.isArray(data?.features) ? data.features : [];
+      if (query) {
+        features = features.filter((f) =>
+          [f.properties?.name, f.properties?.owners, f.properties?.url]
+            .join(' ').toLowerCase().includes(query)
+        );
+      }
+      return {
+        cables: features.slice(0, 200).map((f) => ({
+          id: f.properties?.id || f.id || '',
+          name: f.properties?.name || '',
+          color: f.properties?.color || '',
+          length: f.properties?.length || '',
+          rfs: f.properties?.rfs || '',
+          owners: f.properties?.owners || '',
+          url: f.properties?.url || '',
+        })),
+        count: features.length,
+        source: 'TeleGeography Submarine Cable Map',
+      };
+    },
+  },
+  cisa_kev: {
+    description: 'CISA Known Exploited Vulnerabilities — actively exploited CVEs requiring remediation',
+    run: async (_ctx, params) => {
+      const query = (params.query ?? '').toLowerCase().trim();
+      const data = await fetchJsonUrl(
+        'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
+        { timeoutMs: 20000 },
+      );
+      let vulns = Array.isArray(data?.vulnerabilities) ? data.vulnerabilities : [];
+      if (query) {
+        vulns = vulns.filter((v) =>
+          [v.cveID, v.vendorProject, v.product, v.vulnerabilityName, v.shortDescription]
+            .join(' ').toLowerCase().includes(query)
+        );
+      }
+      // Return most recent first
+      vulns.sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || ''));
+      const limited = vulns.slice(0, Number(params.limit || 50));
+      return {
+        vulnerabilities: limited.map((v) => ({
+          cveID: v.cveID || '',
+          vendor: v.vendorProject || '',
+          product: v.product || '',
+          name: v.vulnerabilityName || '',
+          description: (v.shortDescription || '').slice(0, 300),
+          dateAdded: v.dateAdded || '',
+          dueDate: v.dueDate || '',
+          knownRansomware: v.knownRansomwareCampaignUse || 'Unknown',
+        })),
+        count: limited.length,
+        totalKEVs: Array.isArray(data?.vulnerabilities) ? data.vulnerabilities.length : 0,
+        catalogVersion: data?.catalogVersion || '',
+        query: query || undefined,
+        source: 'CISA KEV',
+      };
+    },
+  },
+  ransomware_posts: {
+    description: 'Recent ransomware group victim posts from RansomLook — real-time extortion monitoring',
+    run: async (_ctx, params) => {
+      const days = Number(params.limit || 7);
+      const data = await fetchJsonUrl(
+        `https://www.ransomlook.io/api/last/${Math.min(days, 30)}`,
+        { timeoutMs: 15000 },
+      );
+      const posts = Array.isArray(data) ? data : [];
+      return {
+        posts: posts.slice(0, 100).map((p) => ({
+          groupName: p.group_name || '',
+          title: p.post_title || '',
+          url: p.post_url || '',
+          discovered: p.discovered || '',
+          description: (p.description || '').slice(0, 300),
+          website: p.website || '',
+        })),
+        count: posts.length,
+        source: 'RansomLook.io',
+      };
+    },
+  },
+  threatfox_iocs: {
+    description: 'ThreatFox malware IOCs — command & control servers, malware URLs, hashes from abuse.ch',
+    run: async (_ctx, params) => {
+      const days = Number(params.limit || 7);
+      // Try ThreatFox API; fall back to the public CSV feed if auth fails
+      let resp = await fetch('https://threatfox-api.abuse.ch/api/v1/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'get_iocs', days: Math.min(days, 30) }),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!resp.ok) {
+        // Fallback: public IOC CSV export
+        const csvResp = await fetch('https://threatfox.abuse.ch/export/json/recent/', {
+          signal: AbortSignal.timeout(15000),
+        });
+        if (csvResp.ok) {
+          const fallbackData = await csvResp.json();
+          const fbIocs = Object.values(fallbackData || {}).flat();
+          return {
+            iocs: fbIocs.slice(0, 100).map((i) => ({
+              id: i?.id || '',
+              ioc: i?.ioc_value || i?.ioc || '',
+              iocType: i?.ioc_type || '',
+              threatType: i?.threat_type || '',
+              malware: i?.malware_printable || i?.malware || '',
+              confidence: i?.confidence_level || '',
+              firstSeen: i?.first_seen_utc || '',
+              tags: i?.tags || [],
+            })),
+            count: fbIocs.length,
+            source: 'abuse.ch ThreatFox (public export)',
+          };
+        }
+        throw new Error(`ThreatFox unavailable (API: ${resp.status}, export: ${csvResp.status})`);
+      }
+      const data = await resp.json();
+      const iocs = Array.isArray(data?.data) ? data.data : [];
+      return {
+        iocs: iocs.slice(0, 100).map((i) => ({
+          id: i.id || '',
+          ioc: i.ioc || '',
+          iocType: i.ioc_type || '',
+          threatType: i.threat_type || '',
+          malware: i.malware_printable || i.malware || '',
+          confidence: i.confidence_level || '',
+          firstSeen: i.first_seen_utc || '',
+          reporter: i.reporter || '',
+          tags: i.tags || [],
+        })),
+        count: iocs.length,
+        query_status: data?.query_status || '',
+        source: 'abuse.ch ThreatFox',
+      };
+    },
+  },
+
   // ── Economic Extended ─────────────────────────────────────────────
   fear_greed_index: {
     description: 'Crypto Fear & Greed Index (30-day history)',
