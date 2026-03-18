@@ -1897,10 +1897,104 @@ const MODULES = {
   },
 
   // ── Real-Time Feeds ──────────────────────────────────────────────
+  // Unified aircraft tracker: ADSB.fi primary, OpenSky fallback.
+  // Returns ALL aircraft unfiltered. Military auto-tagged but not filtered out.
   opensky_aircraft: {
-    description: 'Live aircraft positions from OpenSky ADS-B network. Use bbox to filter by region.',
+    description: 'Live aircraft positions (ADSB.fi primary, OpenSky fallback). Unfiltered — all aircraft returned with military tagging. Use bbox for region, query for callsign/hex.',
     run: async (_ctx, params) => {
+      const MIL_PREFIXES = [
+        'REACH', 'DUKE', 'KING', 'NAVY', 'EVAC', 'JAKE', 'RCH', 'CNV',
+        'CASA', 'FORTE', 'DRACO', 'BISON', 'VIPER', 'HOMER', 'TOPCAT',
+        'RAF', 'RRR', 'IAM', 'GAF', 'BAF', 'FAF', 'SHF', 'HUN', 'PLF',
+        'RFR', 'SVF', 'TUR', 'HAF', 'PAF', 'ASY', 'RSD', 'CFC',
+      ];
+
+      const query = (params.query ?? '').trim();
+      const limit = Number(params.limit || 500);
       const bbox = params.bbox || '';
+      const lat = params.lat ?? params.latitude ?? '';
+      const lon = params.lon ?? params.longitude ?? '';
+      const dist = params.dist ?? params.radius ?? 250;
+
+      // ── Build ADSB.fi URL ──────────────────────────────────────
+      // Priority: lat/lon → bbox → hex → callsign
+      let adsbUrl;
+      if (lat && lon) {
+        adsbUrl = `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
+      } else if (bbox) {
+        const parts = String(bbox).split(',').map(Number);
+        if (parts.length === 4) {
+          const cLat = (parts[0] + parts[2]) / 2;
+          const cLon = (parts[1] + parts[3]) / 2;
+          const rDist = Math.max(
+            Math.abs(parts[2] - parts[0]) * 111,
+            Math.abs(parts[3] - parts[1]) * 111 * Math.cos(cLat * Math.PI / 180),
+          ) / 2;
+          adsbUrl = `https://api.adsb.lol/v2/lat/${cLat}/lon/${cLon}/dist/${Math.ceil(rDist)}`;
+        }
+      } else if (query && /^[a-f0-9]{4,6}$/i.test(query)) {
+        adsbUrl = `https://api.adsb.lol/v2/icao/${query.toLowerCase()}`;
+      } else if (query) {
+        adsbUrl = `https://api.adsb.lol/v2/callsign/${encodeURIComponent(query)}`;
+      }
+
+      // ── Try ADSB.fi ────────────────────────────────────────────
+      if (adsbUrl) {
+        try {
+          const resp = await fetch(adsbUrl, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (resp.ok) {
+            const raw = await resp.json();
+            const ac = Array.isArray(raw?.ac) ? raw.ac : [];
+            const aircraft = ac.slice(0, limit).map((a) => {
+              const cs = (a.flight || '').trim().toUpperCase();
+              return {
+                icao24: a.hex || '',
+                callsign: cs,
+                registration: a.r || '',
+                aircraftType: a.t || '',
+                category: a.category || '',
+                latitude: a.lat ?? null,
+                longitude: a.lon ?? null,
+                altitudeFt: a.alt_baro === 'ground' ? 0 : (a.alt_baro ?? a.alt_geom ?? null),
+                altitudeGeomFt: a.alt_geom ?? null,
+                groundSpeedKts: a.gs ?? null,
+                indicatedAirspeedKts: a.ias ?? null,
+                trueAirspeedKts: a.tas ?? null,
+                machNumber: a.mach ?? null,
+                heading: a.track ?? null,
+                magneticHeading: a.mag_heading ?? null,
+                trueHeading: a.true_heading ?? null,
+                verticalRateFpm: a.baro_rate ?? a.geom_rate ?? null,
+                squawk: a.squawk || '',
+                onGround: a.alt_baro === 'ground',
+                emergency: a.emergency || 'none',
+                military: MIL_PREFIXES.some((p) => cs.startsWith(p)) || (a.dbFlags & 1) === 1,
+                windDir: a.wd ?? null,
+                windSpeedKts: a.ws ?? null,
+                outsideAirTempC: a.oat ?? null,
+                rollDeg: a.roll ?? null,
+                signalRssi: a.rssi ?? null,
+                lastSeenSec: a.seen ?? null,
+                messageCount: a.messages ?? null,
+              };
+            });
+            const milCount = aircraft.filter((a) => a.military).length;
+            return {
+              aircraft,
+              count: ac.length,
+              returned: aircraft.length,
+              militaryCount: milCount,
+              timestamp: raw.now ? Math.floor(raw.now / 1000) : Math.floor(Date.now() / 1000),
+              source: 'ADSB.fi (adsb.lol)',
+            };
+          }
+        } catch { /* fall through */ }
+      }
+
+      // ── OpenSky fallback ───────────────────────────────────────
       const qs = new URLSearchParams();
       if (bbox) {
         const parts = String(bbox).split(',').map(Number);
@@ -1909,37 +2003,36 @@ const MODULES = {
           qs.set('lamax', parts[2]); qs.set('lomax', parts[3]);
         }
       }
-      const url = `https://opensky-network.org/api/states/all${qs.toString() ? '?' + qs : ''}`;
-      const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) throw new Error(`OpenSky HTTP ${resp.status}`);
-      const data = await resp.json();
-      const states = Array.isArray(data?.states) ? data.states : [];
-      // Filter by query (callsign, country) if provided
-      const acQuery = (params.query ?? '').toLowerCase().trim();
-      let filtered = states;
-      if (acQuery) {
-        filtered = states.filter((s) =>
-          (s[1] || '').toLowerCase().includes(acQuery) ||
-          (s[2] || '').toLowerCase().includes(acQuery)
-        );
-      }
+      const osUrl = `https://opensky-network.org/api/states/all${qs.toString() ? '?' + qs : ''}`;
+      const resp = await fetch(osUrl, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) throw new Error(`Both ADSB.fi and OpenSky unavailable (HTTP ${resp.status})`);
+      const raw = await resp.json();
+      const states = Array.isArray(raw?.states) ? raw.states : [];
+      const aircraft = states.slice(0, limit).map((s) => ({
+        icao24: s[0] || '',
+        callsign: (s[1] || '').trim(),
+        registration: '',
+        aircraftType: '',
+        category: '',
+        originCountry: s[2] || '',
+        latitude: s[6],
+        longitude: s[5],
+        altitudeFt: s[7] ? Math.round(s[7] * 3.281) : null,
+        groundSpeedKts: s[9] ? Math.round(s[9] * 1.944) : null,
+        heading: s[10],
+        verticalRateFpm: s[11] ? Math.round(s[11] * 196.85) : null,
+        squawk: s[14] || '',
+        onGround: s[8],
+        emergency: 'none',
+        military: false,
+      }));
       return {
-        aircraft: filtered.slice(0, Number(params.limit || 500)).map((s) => ({
-          icao24: s[0] || '',
-          callsign: (s[1] || '').trim(),
-          originCountry: s[2] || '',
-          longitude: s[5],
-          latitude: s[6],
-          altitudeM: s[7],
-          onGround: s[8],
-          velocityMs: s[9],
-          heading: s[10],
-          verticalRate: s[11],
-          squawk: s[14] || '',
-        })),
+        aircraft,
         count: states.length,
-        timestamp: data.time,
-        source: 'OpenSky Network',
+        returned: aircraft.length,
+        militaryCount: 0,
+        timestamp: raw.time,
+        source: 'OpenSky Network (fallback)',
       };
     },
   },
@@ -2456,20 +2549,56 @@ const MODULES = {
   },
 };
 
+// ── Plugin Loader ────────────────────────────────────────────────────
+// Auto-load modules from api/modules/*.mjs (files starting with _ are skipped).
+// Each plugin file exports: { name, description, run(ctx, params) }
+// This makes adding new feeds a single-file operation — no edits to headless.js.
+import { readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __headless_dir = dirname(fileURLToPath(import.meta.url));
+const MODULES_DIR = join(__headless_dir, 'modules');
+
+try {
+  const files = readdirSync(MODULES_DIR).filter(
+    (f) => f.endsWith('.mjs') && !f.startsWith('_'),
+  );
+  for (const file of files) {
+    try {
+      // Dynamic import is async but we're at top level in an ES module
+      const mod = await import(join(MODULES_DIR, file));
+      const id = mod.name || file.replace(/\.mjs$/, '');
+      if (MODULES[id]) {
+        console.warn(`[modules] skipping ${file} — module "${id}" already exists`);
+        continue;
+      }
+      MODULES[id] = {
+        description: mod.description || `Plugin module: ${id}`,
+        run: mod.run,
+      };
+      console.log(`[modules] loaded plugin: ${id} (${file})`);
+    } catch (err) {
+      console.error(`[modules] failed to load ${file}:`, err.message);
+    }
+  }
+} catch {
+  // modules/ directory doesn't exist — that's fine
+}
+
 const CORE_MODULES = [
-  'seismology_earthquakes', 'conflict_acled', 'unrest_events',
-  'cyber_threats', 'infrastructure_outages', 'maritime_warnings',
+  'seismology_earthquakes', 'cyber_threats', 'infrastructure_outages',
   'news_rss', 'intelligence_risk_scores',
 ];
 
 const FAST_MODULES = [
-  'conflict_acled',
-  'unrest_events',
-  'maritime_snapshot',
-  'infrastructure_outages',
   'seismology_earthquakes',
-  'wildfire_detections',
+  'infrastructure_outages',
+  'cyber_threats',
+  'news_rss',
   'military_usni',
+  'weather_alerts',
+  'cisa_kev',
 ];
 
 // Lazy in-memory cache (per Cloud Run instance):

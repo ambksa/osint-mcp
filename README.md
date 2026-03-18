@@ -1,6 +1,6 @@
 # osint-mcp
 
-MCP server exposing 57 OSINT tools for AI agents. Wraps [worldosint-headless](https://github.com/nativ3ai/worldosint-headless) as a [Model Context Protocol](https://modelcontextprotocol.io/) server using [FastMCP](https://github.com/jlowin/fastmcp).
+MCP server exposing 64 OSINT tools for AI agents. Wraps [worldosint-headless](https://github.com/nativ3ai/worldosint-headless) as a [Model Context Protocol](https://modelcontextprotocol.io/) server using [FastMCP](https://github.com/jlowin/fastmcp).
 
 ## Quick Start
 

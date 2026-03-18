@@ -4,7 +4,7 @@
 
 Monorepo for OSINT MCP tooling:
 
-- **`mcp/`** — Python FastMCP server (57 tools, 6 resources) wrapping the headless API
+- **`mcp/`** — Python FastMCP server (64 tools, 6 resources) wrapping the headless API
 - **`server/`** — Node.js headless OSINT server (worldosint-headless fork) aggregating 48+ data sources
 - **`docker-compose.yml`** — Runs both services together
 

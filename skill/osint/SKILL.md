@@ -1,11 +1,11 @@
 ---
 name: osint
-description: OSINT intelligence gathering and analysis using 57 MCP tools covering conflict, maritime, military, cyber, infrastructure, natural events, markets, economics, trade, supply chain, news, research, predictions, geolocation, humanitarian, and risk data. Use when the user asks about geopolitical events, threat assessments, regional situations, economic conditions, market data, conflict zones, maritime chokepoints, cyber threats, natural disasters, or any intelligence analysis task.
+description: OSINT intelligence gathering and analysis using MCP tools covering cyber, natural events, military, news, economics, supply chain, research, geolocation, humanitarian, health, and risk data. Use when the user asks about geopolitical events, threat assessments, regional situations, economic conditions, market data, cyber threats, natural disasters, or any intelligence analysis task.
 ---
 
 # OSINT Intelligence
 
-This skill provides access to 57 real-time OSINT tools and 6 browsable resources via the osint-mcp server. The tools query live data from USGS, ACLED, UCDP, NASA FIRMS, BIS, FRED, Polymarket, GDELT, UNHCR, and 40+ other sources.
+This skill provides access to 64 real-time OSINT tools and 6 browsable resources via the osint-mcp server. The tools query live data from USGS, NASA, BIS, GDELT, UNHCR, CoinGecko, CISA, abuse.ch, FRED, FMP, and 30+ other sources. Five financial tools (FRED, FMP) require API keys — see "API-key-dependent tools" section.
 
 ## Tool access
 
@@ -58,13 +58,13 @@ Present: top risk regions, breaking news, active threats, significant natural ev
 
 ### Intelligence Report — "intelligence report on [place]" / "OSINT on [place]" / "intel on [place]"
 
-**USE THE COMPOSITE TOOL — ONE CALL, NOT 14.** Call `intelligence_report` once:
+**USE THE COMPOSITE TOOL — ONE CALL, NOT MANY.** Call `intelligence_report` once:
 
 ```
 intelligence_report(query="Dubai", keywords="Dubai,UAE,Hormuz,Emirates,Abu Dhabi,Gulf")
 ```
 
-This single call queries 14 modules in parallel, filters results by keywords server-side, and returns only region-relevant data in ~3 seconds. Do NOT call individual tools like get_news_rss or get_conflict_acled separately — the composite tool does this for you with filtering.
+This single call queries 14 modules in parallel, filters results by keywords server-side, and returns only region-relevant data in ~3 seconds. Do NOT call individual tools separately — the composite tool does this for you with filtering.
 
 How to build keywords: place name + country + nearby strategic features + relevant actors.
 - Dubai → "Dubai,UAE,Hormuz,Emirates,Abu Dhabi,Gulf"
@@ -72,14 +72,12 @@ How to build keywords: place name + country + nearby strategic features + releva
 - Taiwan → "Taiwan,Taipei,China,PLA,strait"
 
 Present the results as a structured intelligence report with these sections:
-- **Security & Geopolitical Risk**: risk scores, conflicts, unrest, military posture
-- **Maritime & Logistics**: chokepoint status, warnings, shipping
+- **Security & Geopolitical Risk**: risk scores, military posture
+- **Maritime & Logistics**: chokepoint status, shipping
 - **Aviation & Travel**: airport delays, airspace status from news
 - **Economic Signals**: macro data, market sentiment, trade impact
-- **Cyber & Infrastructure**: threats, outages, cable health
+- **Cyber & Infrastructure**: threats, outages
 - **Humanitarian**: displacement, population exposure
-
-Cross-reference news headlines against all other data sources. If news mentions events (blockades, airspace closures, attacks) that aren't reflected in structured data, flag the discrepancy and use the news as the primary signal.
 
 ### Threat Briefing — "threat briefing for [region/topic]"
 
@@ -87,36 +85,31 @@ For regional or topical threat assessment:
 
 1. `get_geocode` with the region name → get coordinates
 2. `get_intelligence_summary` — overall risk scores
-3. `get_conflict_acled` — armed conflict events
-4. `get_unrest_events` — protests and civil unrest
-5. `get_cyber_threats` — cyber IOCs
-6. `get_news_rss` — relevant headlines
-7. `get_military_posture` — theater posture
+3. `get_cyber_threats` — cyber IOCs
+4. `get_news_rss` — relevant headlines
+5. `get_military_usni` — fleet positions
 
-Present: risk score for region, active conflicts, unrest events, cyber threats, military posture, supporting news. Separate confirmed events from assessments.
+Present: risk score for region, cyber threats, military posture, supporting news. Separate confirmed events from assessments.
 
 ### Maritime Situation — "maritime situation" / "chokepoints" / "shipping"
 
 1. `get_chokepoints` — all 6 major chokepoint statuses
-2. `get_maritime_warnings` — active navigational warnings
-3. `get_maritime_snapshot` — vessel positions
-4. `get_shipping_rates` — container rates
-5. `get_news_rss` — maritime-relevant headlines
+2. `get_submarine_cables` — undersea cable infrastructure
+3. `get_news_rss` — maritime-relevant headlines
 
-Present: chokepoint status table (name, status, disruption score), active warnings, shipping rate trends, relevant news.
+Present: chokepoint status table (name, status, disruption score), cable health, relevant news.
 
 ### Economic Outlook — "economic outlook" / "markets" / "economy"
 
 1. `get_economic_macro` — FRED macro signals (GDP, unemployment, inflation)
 2. `get_bis_rates` — central bank policy rates
-3. `get_markets` — stock/index quotes
+3. `get_bis_fx` — exchange rates
 4. `get_crypto` — cryptocurrency prices
-5. `get_commodities` — commodity prices
-6. `get_economic_energy` — energy prices
-7. `get_trade_flows` — international trade data
-8. `get_stablecoins` — stablecoin market health
+5. `get_stablecoins` — stablecoin market health
+6. `get_fear_greed` — market sentiment
+7. `get_us_treasury` — federal receipts/outlays
 
-Present: macro verdict (bullish/bearish/neutral), key rates, market summary, energy prices, trade trends.
+Present: macro verdict (bullish/bearish/neutral), key rates, market summary, sentiment.
 
 ### Regional SITREP — "situation report for [place]" / "SITREP [place]"
 
@@ -124,72 +117,60 @@ Full situational awareness for a geographic area:
 
 1. `get_geocode` with place name → coordinates + bbox
 2. `get_intelligence_summary` — risk scores
-3. `get_conflict_acled` with bbox — local conflicts
-4. `get_unrest_events` with bbox — local unrest
-5. `get_earthquakes` with bbox — local seismic
-6. `get_wildfires` with bbox — local fires
-7. `get_climate_anomalies` — climate data
-8. `get_displacement` — refugee/displacement data
-9. `get_population_exposure` — population at risk
-10. `get_infrastructure_outages` — internet outages
-11. `get_news_rss` — relevant headlines
+3. `get_earthquakes` with bbox — local seismic
+4. `get_climate_anomalies` — climate data
+5. `get_displacement` — refugee/displacement data
+6. `get_population_exposure` — population at risk
+7. `get_infrastructure_outages` — internet outages
+8. `get_news_rss` — relevant headlines
 
 Present as a structured SITREP:
 - **Situation**: location, population, risk score
-- **Threats**: conflicts, unrest, cyber
-- **Natural hazards**: earthquakes, fires, climate
+- **Natural hazards**: earthquakes, climate
 - **Humanitarian**: displacement, population exposure
-- **Infrastructure**: outages, cable health
+- **Infrastructure**: outages
 - **Assessment**: overall threat level with supporting evidence
 
-### Supply Chain Risk — "supply chain" / "critical minerals" / "trade barriers"
+### Supply Chain Risk — "supply chain" / "critical minerals"
 
 1. `get_chokepoints` — maritime chokepoint status
-2. `get_shipping_rates` — freight rates
-3. `get_critical_minerals` — mineral supply data
-4. `get_trade_restrictions` — active restrictions
-5. `get_trade_barriers` — trade barriers
-6. `get_trade_tariffs` — tariff trends
-7. `get_trade_flows` — flow data
+2. `get_critical_minerals` — mineral supply data
+3. `get_submarine_cables` — undersea cable infrastructure
 
-Present: chokepoint disruptions, rate trends, mineral supply risks, active trade restrictions.
-
-### Prediction Markets — "predictions" / "what are markets saying about"
-
-1. `get_predictions` — open Polymarket markets
-2. `get_polymarket_intel` — live trades and signals
-3. `get_news_rss` — supporting news context
-
-Present: market question, current YES/NO pricing, volume, deadline, supporting news.
+Present: chokepoint disruptions, mineral supply risks, cable infrastructure status.
 
 ### Research Digest — "what's trending in tech" / "research"
 
 1. `get_arxiv` — recent papers
-2. `get_trending_repos` — GitHub trending
-3. `get_hackernews` — HN top stories
-4. `get_tech_events` — upcoming conferences
+2. `get_hackernews` — HN top stories
+3. `get_tech_events` — upcoming conferences
 
-Present: top papers by topic, trending repos, HN discussion themes, upcoming events.
+Present: top papers by topic, HN discussion themes, upcoming events.
 
-### Military Posture — "military situation" / "military flights"
+### Military Posture — "military situation"
 
-1. `get_military_posture` — theater summaries
-2. `get_military_usni` — USNI fleet tracker
-3. `get_military_flights` with bbox — aircraft tracking (requires bbox)
-4. `get_maritime_warnings` — navigational warnings in theater
+1. `get_military_usni` — USNI fleet tracker
+2. `get_aircraft_mil` with bbox — live aircraft tracking (ADSB.fi, unfiltered, includes military with auto-tagging)
+3. `get_aircraft` with bbox — OpenSky ADS-B (backup, broader coverage)
+4. `get_defense_news` — defense headlines
 
-Present: fleet positions, aircraft activity, theater assessment.
+Present: fleet positions, aircraft activity (highlight military-tagged aircraft), defense news.
+
+**Military aircraft tracking tips:**
+- Use `get_aircraft_mil` with bbox for area searches — it auto-tags military callsigns (REACH, RAF, NAVY, etc.)
+- Use `military=true` param to filter to military-only results
+- Common military callsign prefixes: REACH (USAF transport), RCH (same), DUKE, KING, NAVY, RAF, FORTE (Global Hawk)
+- Use lat/lon/dist params for precise geographic searches
 
 ### Humanitarian Assessment — "humanitarian situation in [place]"
 
 1. `get_geocode` with place → coordinates
 2. `get_displacement` — UNHCR displacement data
 3. `get_population_exposure` — population at risk
-4. `get_conflict_hapi` — HDX HAPI humanitarian data
-5. `get_giving_summary` — philanthropic giving trends
-6. `get_positive_events` — positive developments
+4. `get_giving_summary` — philanthropic giving trends
+5. `get_health_advisories` — disease outbreaks
 
-Present: displacement numbers, population exposure, humanitarian access, giving trends, positive developments.
+Present: displacement numbers, population exposure, humanitarian access, giving trends.
 
 ## Multi-module queries
 
@@ -206,8 +187,27 @@ This returns all three in one call. Use `list_modules` to discover all available
 ### Required parameters
 
 These tools REQUIRE specific parameters — they will error without them:
-- `get_geocode` requires `query` (string) — the place name to geocode
-- `get_military_flights` requires `bbox` (string) — bounding box coordinates
+- `get_geocode` requires `query` — the place name to geocode
+- `get_satellite_search` requires `bbox` — bounding box coordinates
+- `get_worldbank` requires `query` (country code) + `indicator`
+- `get_imf_data` requires `query` (country code) + `indicator`
+- `get_sanctions` requires `query` — name, country, or program
+- `get_travel_advisories` requires `query` — country name
+- `get_country_facts` requires `query` — country name or ISO code
+- `get_gdelt` requires `query` — search keywords
+- `get_arxiv` requires `query` — topic keywords
+- `get_sec_filings` requires `query` — company name or ticker
+- `get_github_activity` requires `query` — org name
+- `get_hn_search` requires `query` — search term
+- `get_aircraft` requires `query` — callsign/country or use bbox
+- `get_aircraft_mil` requires `query` — callsign/hex, or use bbox with lat/lon/dist params. Set `military=true` for mil-only
+- `get_submarine_cables` requires `query` — name, owner, or region
+- `get_cisa_kev` requires `query` — vendor, product, or CVE ID
+- `get_fred_series` requires `query` — FRED series ID (e.g. 'UNRATE', 'GDP')
+- `get_fmp_quote` requires `query` — stock ticker (e.g. 'AAPL')
+- `get_fmp_profile` requires `query` — stock ticker
+- `get_fmp_ratios` requires `query` — stock ticker
+- `get_fmp_estimates` requires `query` — stock ticker
 
 ### Common optional parameters
 
@@ -216,34 +216,52 @@ Every tool accepts:
 - `limit` — max results
 - `bbox` — geographic bounding box filter
 
-### All 57 tools by category
+### All tools by category
 
-**Aggregate**: health_check, list_modules, query_modules, get_intelligence_summary
-**Conflict**: get_conflict_acled, get_conflict_ucdp, get_conflict_hapi, get_unrest_events
-**Maritime**: get_maritime_warnings, get_maritime_snapshot
-**Military**: get_military_flights, get_military_posture, get_military_usni
-**Cyber**: get_cyber_threats
-**Infrastructure**: get_infrastructure_outages, get_infrastructure_cable_health, get_infrastructure_baseline, get_infrastructure_services
-**Natural Events**: get_earthquakes, get_wildfires, get_climate_anomalies
-**Markets**: get_markets, get_crypto, get_commodities, get_stablecoins, get_etf_flows
-**Economics**: get_economic_macro, get_economic_energy, get_bis_rates, get_bis_fx, get_bis_credit
-**Trade**: get_trade_flows, get_trade_tariffs, get_trade_restrictions, get_trade_barriers
-**Supply Chain**: get_shipping_rates, get_chokepoints, get_critical_minerals
-**News**: get_news_rss, get_news_telegram, get_gdelt
-**Research**: get_tech_events, get_arxiv, get_trending_repos, get_hackernews
-**Predictions**: get_predictions, get_polymarket_intel
-**Geolocation**: get_geocode, get_geo_filters, get_satellite_snapshot
+**Aggregate**: health_check, list_modules, query_modules, get_intelligence_summary, intelligence_report
+**Military**: get_military_usni
+**Cyber**: get_cyber_threats, get_cisa_kev, get_ransomware, get_threatfox
+**Infrastructure**: get_infrastructure_outages, get_infrastructure_services
+**Natural Events**: get_earthquakes, get_climate_anomalies, get_natural_events, get_disaster_alerts, get_tropical_weather, get_weather_alerts
+**Crypto & Markets**: get_crypto, get_stablecoins, get_fear_greed, get_bitcoin_hashrate
+**Economics**: get_economic_macro, get_bis_rates, get_bis_fx, get_us_spending, get_us_treasury, get_worldbank, get_imf_data
+**Supply Chain**: get_chokepoints, get_critical_minerals
+**News**: get_news_rss, get_gdelt, get_news_velocity, get_aviation_news, get_defense_news
+**Research**: get_tech_events, get_arxiv, get_hackernews
+**Geolocation**: get_geocode, get_satellite_snapshot, get_satellite_search
 **Humanitarian**: get_displacement, get_population_exposure, get_giving_summary
-**Misc**: get_aviation_delays, get_positive_events, get_risk_scores, get_pizzint
+**Security**: get_sanctions, get_travel_advisories, get_health_advisories, get_embassy_alerts, get_country_facts
+**Radiation**: get_radiation_safecast
+**Aviation**: get_aviation_delays
+**Intelligence**: get_pizzint
+**Enrichment**: get_sec_filings, get_github_activity, get_hn_search
+**Real-Time**: get_aircraft, get_aircraft_mil, get_submarine_cables
+**Financial (API key required)**: get_fred_series, get_fmp_quote, get_fmp_profile, get_fmp_ratios, get_fmp_estimates
+
+### API-key-dependent tools
+
+These tools require API keys set in the server's `.env` file. Without keys they return a clear error message.
+
+| Tool | Key Required | Get it at |
+|------|-------------|-----------|
+| `get_fred_series` | `FRED_API_KEY` | https://fred.stlouisfed.org/docs/api/api_key.html (free) |
+| `get_fmp_quote` | `FMP_API_KEY` | https://site.financialmodelingprep.com/developer (free tier) |
+| `get_fmp_profile` | `FMP_API_KEY` | (same) |
+| `get_fmp_ratios` | `FMP_API_KEY` | (same) |
+| `get_fmp_estimates` | `FMP_API_KEY` | (same) |
+
+**FRED tools** — query is a FRED series ID: `UNRATE` (unemployment), `GDP`, `CPIAUCSL` (CPI), `DFF` (fed funds rate), `T10Y2Y` (yield curve).
+
+**FMP tools** — query is a stock ticker: `AAPL`, `MSFT`, `GOOGL`, `TSLA`, etc.
 
 ### Resources (browsable data)
 
 - `osint://earthquakes` — USGS earthquake data
-- `osint://wildfires` — NASA FIRMS fire detections
 - `osint://climate` — climate anomaly data
-- `osint://conflict/{source}` — conflict data (acled, ucdp, hapi)
-- `osint://maritime/{type}` — maritime data (warnings, snapshot)
-- `osint://military/{type}` — military data (flights, posture, usni)
+- `osint://disasters` — GDACS disaster alerts
+- `osint://military/usni` — USNI Fleet tracker
+- `osint://cyber` — cyber threat IOCs
+- `osint://news` — aggregated RSS news
 
 ## Decision logic
 
@@ -291,14 +309,11 @@ These are example prompts users might say, mapped to workflows:
 - "How are the shipping chokepoints" → Maritime Situation
 - "What's the economic outlook" → Economic Outlook
 - "Any cyber threats I should know about" → call get_cyber_threats
-- "What are prediction markets saying about X" → Prediction Markets
 - "Latest earthquakes" → call get_earthquakes
 - "Bitcoin price" → call get_crypto
-- "Military flights over Europe" → call get_military_flights with European bbox
 - "Supply chain risks" → Supply Chain Risk
 - "Humanitarian situation in Syria" → Humanitarian Assessment
 - "What's trending in AI research" → Research Digest
-- "Get me everything on Iran" → Threat Briefing + Maritime Situation + Economic Outlook combined
 
 ## Extending
 
