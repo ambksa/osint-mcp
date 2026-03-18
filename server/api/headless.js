@@ -1365,7 +1365,8 @@ const MODULES = {
       }
 
       const reportModules = [
-        'news_rss', 'intelligence_risk_scores', 'conflict_acled', 'unrest_events',
+        'news_rss', 'intelligence_gdelt', 'intelligence_risk_scores',
+        'conflict_acled', 'unrest_events',
         'supply_chain_chokepoints', 'maritime_warnings', 'maritime_snapshot',
         'military_posture', 'military_usni', 'cyber_threats', 'aviation_delays',
         'economic_macro', 'infrastructure_outages', 'infrastructure_services',
