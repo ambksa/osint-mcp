@@ -1365,11 +1365,28 @@ const MODULES = {
       }
 
       const reportModules = [
+        // Core intelligence
         'news_rss', 'intelligence_gdelt', 'intelligence_risk_scores',
-        'conflict_acled', 'unrest_events',
-        'supply_chain_chokepoints', 'maritime_warnings', 'maritime_snapshot',
-        'military_posture', 'military_usni', 'cyber_threats', 'aviation_delays',
-        'economic_macro', 'infrastructure_outages', 'infrastructure_services',
+        // Conflict & security
+        'conflict_acled', 'unrest_events', 'cyber_threats',
+        // Maritime & supply chain
+        'supply_chain_chokepoints', 'maritime_warnings',
+        // Military
+        'military_usni',
+        // Travel & advisories
+        'travel_advisories', 'embassy_alerts',
+        // Aviation
+        'aviation_delays',
+        // Economic
+        'economic_macro',
+        // Natural disasters
+        'natural_events_eonet',
+        // Humanitarian
+        'displacement_summary',
+        // Infrastructure
+        'infrastructure_outages',
+        // Sanctions
+        'sanctions_ofac',
       ];
 
       const filterFn = (item) => {
@@ -1428,7 +1445,7 @@ const MODULES = {
         if (s.status !== 'fulfilled') continue;
         const { name, result } = s.value;
         if (result.error) continue;
-        if (['intelligence_risk_scores', 'supply_chain_chokepoints', 'economic_macro'].includes(name) && !results[name]) {
+        if (['intelligence_risk_scores', 'supply_chain_chokepoints', 'economic_macro', 'sanctions_ofac', 'travel_advisories', 'displacement_summary', 'natural_events_eonet'].includes(name) && !results[name]) {
           results[name] = { data: result.data || result, description: result.description || '' };
         }
       }
