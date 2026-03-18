@@ -351,6 +351,50 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "sanctions_ofac",
         "description": "Get OFAC SDN sanctions list — designated persons, vessels, aircraft.",
     },
+    # ── Security & Health Advisories ───────────────────────────────────
+    {
+        "tool_name": "get_travel_advisories",
+        "module_id": "travel_advisories",
+        "description": "Get government travel advisories from US State Dept, UK FCDO, NZ MFAT.",
+    },
+    {
+        "tool_name": "get_health_advisories",
+        "module_id": "health_advisories",
+        "description": "Get disease outbreaks and health advisories from CDC, ECDC, WHO.",
+    },
+    {
+        "tool_name": "get_embassy_alerts",
+        "module_id": "embassy_alerts",
+        "description": "Get US Embassy security alerts for high-risk countries.",
+    },
+    # ── Country Intelligence ───────────────────────────────────────────
+    {
+        "tool_name": "get_country_facts",
+        "module_id": "country_facts",
+        "description": "Get country profile: demographics, languages, flag, Wikipedia summary. Requires country name or ISO code.",
+        "required_params": {"query": str},
+    },
+    # ── Economic Extended ──────────────────────────────────────────────
+    {
+        "tool_name": "get_fear_greed",
+        "module_id": "fear_greed_index",
+        "description": "Get Crypto Fear & Greed Index (30-day history).",
+    },
+    {
+        "tool_name": "get_bitcoin_hashrate",
+        "module_id": "bitcoin_hashrate",
+        "description": "Get Bitcoin network hashrate (1 month).",
+    },
+    {
+        "tool_name": "get_us_spending",
+        "module_id": "us_spending",
+        "description": "Get US federal spending data from USASpending.gov.",
+    },
+    {
+        "tool_name": "get_us_treasury",
+        "module_id": "us_treasury",
+        "description": "Get Monthly Treasury Statement data (receipts, outlays, deficit).",
+    },
 ]
 
 

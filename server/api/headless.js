@@ -1651,6 +1651,173 @@ const MODULES = {
     },
   },
 
+  // ── Security & Health Advisories ──────────────────────────────────
+  travel_advisories: {
+    description: 'Government travel advisories from US State Dept, UK FCDO, NZ MFAT',
+    run: async (ctx) => {
+      const feeds = [
+        'https://travel.state.gov/_res/rss/TAsTWs.xml',
+        'https://www.gov.uk/foreign-travel-advice.atom',
+        'https://www.safetravel.govt.nz/news/feed',
+      ];
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const feedPromises = feeds.map(async (feedUrl) => {
+        const proxied = `${ctx.origin}/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+        const resp = await fetch(proxied, {
+          headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const xml = await resp.text();
+        const data = parser.parse(xml) || {};
+        const channel = data.rss?.channel || data.channel;
+        const channelTitle = channel?.title || data.feed?.title || '';
+        const items = channel?.item || data.feed?.entry || [];
+        const list = Array.isArray(items) ? items : [items].filter(Boolean);
+        return list.slice(0, 20).map((item) => ({
+          title: item.title || '',
+          link: item.link?.['@_href'] || item.link?.href || item.link || item.guid || '',
+          pubDate: item.pubDate || item.published || item.updated || '',
+          source: channelTitle || '',
+          feed: feedUrl,
+        }));
+      });
+      const settled = await Promise.allSettled(feedPromises);
+      const items = [];
+      for (const s of settled) {
+        if (s.status === 'fulfilled') items.push(...s.value);
+      }
+      return { items, feedCount: feeds.length };
+    },
+  },
+  health_advisories: {
+    description: 'Disease outbreaks and health advisories from CDC, ECDC, WHO',
+    run: async (ctx) => {
+      const feeds = [
+        'https://wwwnc.cdc.gov/travel/rss/notices.xml',
+        'https://www.ecdc.europa.eu/en/taxonomy/term/2942/feed',
+        'https://www.who.int/rss-feeds/news-english.xml',
+      ];
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const feedPromises = feeds.map(async (feedUrl) => {
+        const proxied = `${ctx.origin}/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+        const resp = await fetch(proxied, {
+          headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const xml = await resp.text();
+        const data = parser.parse(xml) || {};
+        const channel = data.rss?.channel || data.channel;
+        const channelTitle = channel?.title || data.feed?.title || '';
+        const items = channel?.item || data.feed?.entry || [];
+        const list = Array.isArray(items) ? items : [items].filter(Boolean);
+        return list.slice(0, 20).map((item) => ({
+          title: item.title || '',
+          link: item.link?.['@_href'] || item.link?.href || item.link || item.guid || '',
+          pubDate: item.pubDate || item.published || item.updated || '',
+          source: channelTitle || '',
+          feed: feedUrl,
+        }));
+      });
+      const settled = await Promise.allSettled(feedPromises);
+      const items = [];
+      for (const s of settled) {
+        if (s.status === 'fulfilled') items.push(...s.value);
+      }
+      return { items, feedCount: feeds.length };
+    },
+  },
+  embassy_alerts: {
+    description: 'US Embassy security alerts for high-risk countries',
+    run: async (ctx) => {
+      const countries = ['ua', 'il', 'cn', 'ru', 'ir', 'af', 'iq', 'sy', 'lb', 'pk', 'eg', 'sa', 'ye'];
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const feedPromises = countries.map(async (cc) => {
+        const feedUrl = `https://${cc}.usembassy.gov/category/alert/feed/`;
+        try {
+          const proxied = `${ctx.origin}/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+          const resp = await fetch(proxied, {
+            headers: { Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const xml = await resp.text();
+          const data = parser.parse(xml) || {};
+          const channel = data.rss?.channel || data.channel;
+          const channelTitle = channel?.title || data.feed?.title || '';
+          const items = channel?.item || data.feed?.entry || [];
+          const list = Array.isArray(items) ? items : [items].filter(Boolean);
+          return list.slice(0, 10).map((item) => ({
+            title: item.title || '',
+            link: item.link?.['@_href'] || item.link?.href || item.link || item.guid || '',
+            pubDate: item.pubDate || item.published || item.updated || '',
+            source: channelTitle || '',
+            country: cc.toUpperCase(),
+            feed: feedUrl,
+          }));
+        } catch (error) {
+          return [{ country: cc.toUpperCase(), feed: feedUrl, error: error?.message || String(error) }];
+        }
+      });
+      const settled = await Promise.allSettled(feedPromises);
+      const items = [];
+      for (const s of settled) {
+        if (s.status === 'fulfilled') items.push(...s.value);
+      }
+      return { items, countries };
+    },
+  },
+
+  // ── Country Intelligence ──────────────────────────────────────────
+  country_facts: {
+    description: 'Country profile: demographics, languages, flag, Wikipedia summary',
+    run: async (_ctx, params) => {
+      const query = String(params.query || '').trim();
+      if (!query) throw new Error('Missing required "query" param (country name or ISO code)');
+
+      // Try as ISO code first (2 or 3 letter), fall back to name search
+      const isCode = /^[a-zA-Z]{2,3}$/.test(query);
+      const rcUrl = isCode
+        ? `https://restcountries.com/v3.1/alpha/${encodeURIComponent(query)}`
+        : `https://restcountries.com/v3.1/name/${encodeURIComponent(query)}?fullText=false`;
+
+      const rcData = await fetchJsonUrl(rcUrl);
+      const country = Array.isArray(rcData) ? rcData[0] : rcData;
+      if (!country) throw new Error(`No country found for "${query}"`);
+
+      const commonName = country.name?.common || query;
+
+      // Fetch Wikipedia summary in parallel
+      let wikiSummary = null;
+      try {
+        const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(commonName)}`;
+        const wikiData = await fetchJsonUrl(wikiUrl, { timeoutMs: 10000 });
+        wikiSummary = {
+          title: wikiData.title || '',
+          extract: wikiData.extract || '',
+          thumbnail: wikiData.thumbnail?.source || null,
+        };
+      } catch { /* Wikipedia is optional */ }
+
+      return {
+        name: country.name || {},
+        codes: { cca2: country.cca2, cca3: country.cca3, ccn3: country.ccn3 },
+        capital: country.capital || [],
+        region: country.region,
+        subregion: country.subregion,
+        population: country.population,
+        area: country.area,
+        languages: country.languages || {},
+        currencies: country.currencies || {},
+        timezones: country.timezones || [],
+        flag: country.flags?.svg || country.flags?.png || '',
+        maps: country.maps || {},
+        wikipedia: wikiSummary,
+      };
+    },
+  },
+
   // ── Spec 3: Sanctions ──────────────────────────────────────────────
   sanctions_ofac: {
     description: 'OFAC SDN sanctions list — designated persons, vessels, aircraft',
@@ -1687,6 +1854,81 @@ const MODULES = {
         count: truncated.length,
         totalEntries: list.length,
         source: 'OFAC SDN',
+      };
+    },
+  },
+
+  // ── Economic Extended ─────────────────────────────────────────────
+  fear_greed_index: {
+    description: 'Crypto Fear & Greed Index (30-day history)',
+    run: async () => {
+      const data = await fetchJsonUrl('https://api.alternative.me/fng/?limit=30');
+      const entries = Array.isArray(data?.data) ? data.data : [];
+      return {
+        entries: entries.map((e) => ({
+          value: Number(e.value),
+          label: e.value_classification || '',
+          timestamp: e.timestamp ? new Date(Number(e.timestamp) * 1000).toISOString() : '',
+        })),
+        latest: entries[0] ? {
+          value: Number(entries[0].value),
+          label: entries[0].value_classification || '',
+        } : null,
+      };
+    },
+  },
+  bitcoin_hashrate: {
+    description: 'Bitcoin network hashrate (1 month)',
+    run: async () => {
+      const data = await fetchJsonUrl('https://mempool.space/api/v1/mining/hashrate/1m');
+      const hashrates = Array.isArray(data?.hashrates) ? data.hashrates : [];
+      const difficulty = Array.isArray(data?.difficulty) ? data.difficulty : [];
+      return {
+        hashrates: hashrates.map((h) => ({
+          timestamp: h.timestamp ? new Date(h.timestamp * 1000).toISOString() : '',
+          avgHashrate: h.avgHashrate,
+        })),
+        difficulty: difficulty.map((d) => ({
+          timestamp: d.timestamp ? new Date(d.timestamp * 1000).toISOString() : '',
+          difficulty: d.difficulty,
+        })),
+        currentHashrate: hashrates[hashrates.length - 1]?.avgHashrate || null,
+      };
+    },
+  },
+  us_spending: {
+    description: 'US federal spending data from USASpending.gov',
+    run: async () => {
+      // Federal FY starts Oct 1. FY quarter: Oct-Dec=Q1, Jan-Mar=Q2, Apr-Jun=Q3, Jul-Sep=Q4
+      const now = new Date();
+      const month = now.getMonth(); // 0-based
+      const fy = month >= 9 ? now.getFullYear() + 1 : now.getFullYear();
+      // Use previous quarter to ensure data is available
+      const fyQuarter = month >= 9 ? 1 : month >= 6 ? 4 : month >= 3 ? 3 : 2;
+      const prevQ = fyQuarter === 1 ? 4 : fyQuarter - 1;
+      const prevFy = fyQuarter === 1 ? fy - 1 : fy;
+      const data = await fetchJsonUrl('https://api.usaspending.gov/api/v2/spending/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'agency', filters: { fy: String(prevFy), quarter: String(prevQ) } }),
+      });
+      return data;
+    },
+  },
+  us_treasury: {
+    description: 'Monthly Treasury Statement data (receipts, outlays, deficit)',
+    run: async () => {
+      const url = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_9?sort=-record_date&page[size]=20';
+      const data = await fetchJsonUrl(url);
+      const records = Array.isArray(data?.data) ? data.data : [];
+      return {
+        records: records.map((r) => ({
+          recordDate: r.record_date || '',
+          classification: r.classification_desc || '',
+          currentMonth: r.current_month_net_amt || '',
+          fiscalYearToDate: r.fiscal_year_to_date_net_amt || '',
+        })),
+        meta: data?.meta || {},
       };
     },
   },
