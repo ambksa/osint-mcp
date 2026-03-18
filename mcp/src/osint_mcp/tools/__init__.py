@@ -223,7 +223,8 @@ TOOL_REGISTRY: list[dict] = [
     {
         "tool_name": "get_gdelt",
         "module_id": "intelligence_gdelt",
-        "description": "Get GDELT document search results.",
+        "description": "Search GDELT global event database. Query with keywords like 'Iran conflict' or 'Dubai trade'. Defaults to 'conflict OR protest' if no query given.",
+        "required_params": {"query": str},
     },
     # ── Research ──────────────────────────────────────────────────────
     {
@@ -234,7 +235,8 @@ TOOL_REGISTRY: list[dict] = [
     {
         "tool_name": "get_arxiv",
         "module_id": "research_arxiv",
-        "description": "Get recent arXiv papers.",
+        "description": "Search recent arXiv papers by topic. Query with keywords like 'large language models' or 'quantum computing'.",
+        "required_params": {"query": str},
     },
     {
         "tool_name": "get_trending_repos",
