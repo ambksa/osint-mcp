@@ -1455,28 +1455,26 @@ const MODULES = {
       }
 
       const reportModules = [
-        // Core intelligence
-        'news_rss', 'intelligence_gdelt', 'intelligence_risk_scores',
-        // Conflict & security
-        'conflict_acled', 'unrest_events', 'cyber_threats',
-        // Maritime & supply chain
-        'supply_chain_chokepoints', 'maritime_warnings',
+        // Core intelligence & news
+        'news_rss', 'defense_news',
+        // Security & cyber
+        'cyber_threats', 'cisa_kev', 'ransomware_posts',
+        // Supply chain
+        'supply_chain_chokepoints',
         // Military
         'military_usni',
         // Travel & advisories
-        'travel_advisories', 'embassy_alerts',
+        'travel_advisories', 'embassy_alerts', 'health_advisories',
         // Aviation
         'aviation_delays',
         // Economic
         'economic_macro',
-        // Natural disasters
-        'natural_events_eonet',
-        // Humanitarian
-        'displacement_summary',
+        // Natural disasters & weather
+        'natural_events_gdacs', 'seismology_earthquakes', 'weather_alerts',
         // Infrastructure
-        'infrastructure_outages',
-        // Sanctions
-        'sanctions_ofac',
+        'infrastructure_outages', 'infrastructure_services',
+        // Risk
+        'country_risk_signals',
       ];
 
       const filterFn = (item) => {
@@ -1535,7 +1533,7 @@ const MODULES = {
         if (s.status !== 'fulfilled') continue;
         const { name, result } = s.value;
         if (result.error) continue;
-        if (['intelligence_risk_scores', 'supply_chain_chokepoints', 'economic_macro', 'sanctions_ofac', 'travel_advisories', 'displacement_summary', 'natural_events_eonet'].includes(name) && !results[name]) {
+        if (['supply_chain_chokepoints', 'economic_macro', 'travel_advisories', 'natural_events_gdacs', 'country_risk_signals', 'health_advisories', 'seismology_earthquakes'].includes(name) && !results[name]) {
           results[name] = { data: result.data || result, description: result.description || '' };
         }
       }
