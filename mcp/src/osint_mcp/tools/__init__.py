@@ -384,6 +384,13 @@ TOOL_REGISTRY: list[dict] = [
         "required_params": {"query": str},
         "param_map": {"query": "symbol"},
     },
+    # ── FR24 Aircraft (high coverage) ───────────────────────────
+    {
+        "tool_name": "get_fr24_aircraft",
+        "module_id": "fr24_aircraft",
+        "description": "Get FlightRadar24 aircraft feed — 10-30x more coverage than ADSB.fi, includes origin/destination routes. Use bbox (south,west,north,east). Best for Gulf/Middle East where ADSB.fi has few receivers.",
+        "required_params": {"bbox": str},
+    },
     # ── Plugin modules (curated from server/api/modules/) ────────
     # These were built as plugins and auto-discovered, now curated
     # for better descriptions and consistent interface.
@@ -715,6 +722,7 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "macro_worldbank_indicator", # → get_worldbank (curated)
         "macro_imf_series",         # → get_imf_data (curated)
         "macro_oecd_dataset",       # OECD API returns 404 anyway
+        "fr24_aircraft",            # → get_fr24_aircraft (curated)
     })
 
     try:
