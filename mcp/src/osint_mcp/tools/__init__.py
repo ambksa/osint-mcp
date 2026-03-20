@@ -596,6 +596,17 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "intelligence_risk_scores",  # get_intelligence_summary
         "intelligence_report",       # intelligence_report
     })
+    # Skip broken modules — these return empty data consistently
+    # They still exist on the server but shouldn't be exposed as MCP tools
+    known_ids.update({
+        "conflict_acled", "conflict_ucdp_events", "conflict_hapi", "unrest_events",
+        "maritime_warnings", "maritime_snapshot", "military_flights", "military_posture",
+        "infrastructure_cable_health", "infrastructure_baseline", "wildfire_detections",
+        "markets", "markets_commodities", "markets_etf_flows", "economic_energy",
+        "economic_bis_credit", "trade_flows", "trade_tariffs", "trade_restrictions",
+        "trade_barriers", "supply_chain_shipping", "news_telegram", "research_trending_repos",
+        "predictions", "polymarket_intel", "geo_filters", "radiation_epa", "positive_events",
+    })
 
     try:
         listing = await client.list_modules()
