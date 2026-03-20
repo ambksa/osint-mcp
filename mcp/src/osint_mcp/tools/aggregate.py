@@ -11,7 +11,64 @@ if TYPE_CHECKING:
 
 def register_aggregate_tools(mcp: FastMCP, client: HeadlessClient) -> None:
     """Register aggregate tools that don't follow the single-module pattern."""
-    from osint_mcp.tools import _apply_filters
+    from osint_mcp.tools import _apply_filters, TOOL_REGISTRY
+    import subprocess
+
+    @mcp.tool()
+    async def version() -> dict:
+        """Get osint-mcp version, git commit, tool counts, and system status."""
+        # Git info
+        git_hash = git_date = git_msg = ""
+        try:
+            git_hash = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            git_date = subprocess.run(
+                ["git", "log", "-1", "--format=%ai"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            git_msg = subprocess.run(
+                ["git", "log", "-1", "--format=%s"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+        except Exception:
+            pass
+
+        # Tool counts
+        curated = len(TOOL_REGISTRY)
+
+        # Server health
+        health = await client.health()
+        server_ok = health.get("ok", False) or health.get("status") == "ok"
+
+        # Module count from server
+        module_count = 0
+        try:
+            listing = await client.list_modules()
+            modules = listing.get("modules", [])
+            module_count = len(modules) if isinstance(modules, list) else 0
+        except Exception:
+            pass
+
+        return {
+            "name": "osint-mcp",
+            "version": "0.2.0",
+            "git": {
+                "commit": git_hash,
+                "date": git_date,
+                "message": git_msg,
+            },
+            "tools": {
+                "curated": curated,
+                "serverModules": module_count,
+                "aggregate": 6,  # health_check, list_modules, query_modules, intelligence_summary, intelligence_report, version
+            },
+            "server": {
+                "healthy": server_ok,
+                "url": client._base_url,
+            },
+        }
 
     @mcp.tool()
     async def health_check() -> dict:
