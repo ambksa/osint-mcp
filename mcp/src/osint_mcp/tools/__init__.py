@@ -384,13 +384,6 @@ TOOL_REGISTRY: list[dict] = [
         "required_params": {"query": str},
         "param_map": {"query": "symbol"},
     },
-    # ── FR24 Aircraft (high coverage) ───────────────────────────
-    {
-        "tool_name": "get_fr24_aircraft",
-        "module_id": "fr24_aircraft",
-        "description": "Get FlightRadar24 aircraft feed — 10-30x more coverage than ADSB.fi, includes origin/destination routes. Use bbox (south,west,north,east). Best for Gulf/Middle East where ADSB.fi has few receivers.",
-        "required_params": {"bbox": str},
-    },
     # ── Plugin modules (curated from server/api/modules/) ────────
     # These were built as plugins and auto-discovered, now curated
     # for better descriptions and consistent interface.
@@ -717,12 +710,12 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
     })
     # Skip legacy duplicates — covered by better curated tools
     known_ids.update({
-        "opensky_aircraft",         # → get_aircraft (curated, 19 params)
+        "opensky_aircraft",         # old backend, replaced by fr24_aircraft
+        "fr24_aircraft",            # → get_aircraft (curated, 14 filter params)
         "filings_sec_company",      # → get_sec_filings (curated)
         "macro_worldbank_indicator", # → get_worldbank (curated)
         "macro_imf_series",         # → get_imf_data (curated)
         "macro_oecd_dataset",       # OECD API returns 404 anyway
-        "fr24_aircraft",            # → get_fr24_aircraft (curated)
     })
 
     try:
@@ -762,14 +755,9 @@ def _register_aircraft_tool(mcp: FastMCP, client: HeadlessClient) -> None:
 
     @mcp.tool()
     async def get_aircraft(
-        bbox: str | None = None,
-        query: str | None = None,
-        lat: float | None = None,
-        lon: float | None = None,
-        dist: int | None = None,
+        bbox: str,
         callsign: str | None = None,
         registration: str | None = None,
-        icao24: str | None = None,
         aircraft_type: str | None = None,
         squawk: str | None = None,
         airline: str | None = None,
@@ -782,41 +770,33 @@ def _register_aircraft_tool(mcp: FastMCP, client: HeadlessClient) -> None:
         limit: int | None = None,
         format: str = "json",
     ) -> dict:
-        """Get live aircraft positions (ADSB.fi primary, OpenSky fallback). Unfiltered by default — includes military with auto-tagging.
+        """Get live aircraft positions from FlightRadar24 (400+ aircraft/region, includes origin/destination routes, military auto-tagged).
 
-        LOCATION (use one):
-          bbox: bounding box 'south,west,north,east' (e.g. '22,51,26,56' for UAE)
-          lat/lon/dist: center point + radius in nm (default 250nm)
-          query: callsign prefix or ICAO hex (no bbox needed)
+        LOCATION:
+          bbox: bounding box 'south,west,north,east' (e.g. '24,54,26,56' for UAE, '35,-10,60,30' for Europe)
 
-        FILTERS (all optional, applied server-side, combine freely):
+        FILTERS (all optional, combine freely):
           callsign: match callsign contains (e.g. 'UAE', 'RCH', 'ETD')
           registration: match tail number contains (e.g. 'A6-', 'N12')
-          icao24: match ICAO hex code (e.g. '896110')
           aircraft_type: match ICAO type code contains (e.g. 'B77', 'C17', 'A320')
           squawk: exact squawk code (e.g. '7700' for emergency, '7600' comms failure)
-          airline: match callsign or registration contains (e.g. 'Emirates', 'ETD')
+          airline: match callsign or registration contains
           military: true = military only, false = civilian only
           on_ground: true = on ground only, false = airborne only
-          min_altitude_ft: minimum altitude in feet
-          max_altitude_ft: maximum altitude in feet
+          min_altitude_ft / max_altitude_ft: altitude range in feet
           min_speed_kts: minimum ground speed in knots
           emergency: true = only aircraft declaring emergency
 
         EXAMPLES:
-          "planes over UAE" → bbox='22,51,26,56'
-          "where is UAE508" → callsign='UAE508'
+          "planes over UAE" → bbox='24,54,26,56'
           "military over Europe" → bbox='35,-10,60,30', military=true
+          "Emirates flights" → bbox='24,54,26,56', callsign='UAE'
           "aircraft squawking 7700" → bbox='0,-180,90,180', squawk='7700'
-          "C-17s in the air" → aircraft_type='C17', on_ground=false
           "what's landing at Dubai" → bbox='24.5,54.5,25.5,55.5', max_altitude_ft=3000
         """
-        params = {
-            "bbox": bbox, "query": query,
-            "lat": lat, "lon": lon, "dist": dist,
-            "limit": limit, "format": format,
-        }
-        result = await client.query_module("opensky_aircraft", params)
+        result = await client.query_module("fr24_aircraft", {
+            "bbox": bbox, "limit": limit, "format": format,
+        })
 
         # Apply filters on the MCP side for maximum flexibility
         data = result.get("data", result)
@@ -833,9 +813,6 @@ def _register_aircraft_tool(mcp: FastMCP, client: HeadlessClient) -> None:
         if registration:
             rl = registration.upper()
             filtered = [a for a in filtered if rl in (a.get("registration") or "").upper()]
-        if icao24:
-            hl = icao24.lower()
-            filtered = [a for a in filtered if hl in (a.get("icao24") or "")]
         if aircraft_type:
             tl = aircraft_type.upper()
             filtered = [a for a in filtered if tl in (a.get("aircraftType") or "").upper()]
