@@ -788,11 +788,12 @@ def _register_aircraft_tool(mcp: FastMCP, client: HeadlessClient) -> None:
           emergency: true = only aircraft declaring emergency
 
         EXAMPLES:
-          "planes over UAE" → bbox='24,54,26,56'
+          "planes over UAE" → bbox='22,51,27,57' (wide, includes overflights and transit traffic)
           "military over Europe" → bbox='35,-10,60,30', military=true
-          "Emirates flights" → bbox='24,54,26,56', callsign='UAE'
+          "Emirates flights" → bbox='22,51,27,57', callsign='UAE'
           "aircraft squawking 7700" → bbox='0,-180,90,180', squawk='7700'
           "what's landing at Dubai" → bbox='24.5,54.5,25.5,55.5', max_altitude_ft=3000
+          "planes over Riyadh" → bbox='23,45,26,48'
         """
         result = await client.query_module("fr24_aircraft", {
             "bbox": bbox, "limit": limit, "format": format,
