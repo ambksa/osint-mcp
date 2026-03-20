@@ -54,7 +54,8 @@ export async function run(_ctx, params) {
     return _cache;
   }
 
-  const url = `https://data-cloud.flightradar24.com/zones/fcgi/feed.js?faa=1&satellite=1&mlat=1&adsb=1&gnd=1&air=1&vehicles=0&estimated=0&maxage=14400&gliders=0&stats=0&bounds=${north},${south},${east},${west}`;
+  // FR24 bounds format: north,south,WEST,EAST (not east,west!)
+  const url = `https://data-cloud.flightradar24.com/zones/fcgi/feed.js?faa=1&satellite=1&mlat=1&adsb=1&gnd=1&air=1&vehicles=0&estimated=0&maxage=14400&gliders=0&stats=0&bounds=${north},${south},${west},${east}`;
 
   const resp = await fetch(url, {
     headers: {
