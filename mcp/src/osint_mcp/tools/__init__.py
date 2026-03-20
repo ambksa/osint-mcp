@@ -384,6 +384,108 @@ TOOL_REGISTRY: list[dict] = [
         "required_params": {"query": str},
         "param_map": {"query": "symbol"},
     },
+    # ── Plugin modules (curated from server/api/modules/) ────────
+    # These were built as plugins and auto-discovered, now curated
+    # for better descriptions and consistent interface.
+    {
+        "tool_name": "get_gdelt_events",
+        "module_id": "gdelt_events",
+        "description": "Get GDELT global events (bulk, no rate limit). ~1500 structured events per 15-min window with actors, CAMEO codes, Goldstein stability scores, coordinates. Query by country code, keyword, or event type.",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_country_risk_signals",
+        "module_id": "country_risk_signals",
+        "description": "Get raw OSINT risk signals per country from 9 feeds (news, defense, travel advisories, embassy, disasters, health, cyber). No scoring — returns evidence for analysis. Query by country name or code.",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_intelligence_findings",
+        "module_id": "intelligence_findings",
+        "description": "Get prioritized intelligence findings fused from 11 OSINT modules — CISA KEV, ransomware, cyber threats, earthquakes, GDACS disasters, weather, embassy alerts, health advisories.",
+    },
+    {
+        "tool_name": "get_opensanctions",
+        "module_id": "opensanctions",
+        "description": "Search global sanctions across 40+ lists (OFAC, EU, UN, UK, AU + PEPs) — 78K+ entities. Query by name, country, or program.",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_urlhaus_urls",
+        "module_id": "urlhaus_urls",
+        "description": "Get malware URL tracking from abuse.ch — phishing, malware distribution, C2 callback URLs.",
+    },
+    {
+        "tool_name": "get_nvd_cves",
+        "module_id": "nvd_cves",
+        "description": "Search NIST NVD vulnerability database — CVEs with CVSS scores, severity, affected products. Query by keyword or CVE ID (e.g. 'apache', 'CVE-2026-1234').",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_space_weather",
+        "module_id": "space_weather",
+        "description": "Get NOAA space weather — solar flare probability, geomagnetic storm level (G1-G5), radio blackouts (R1-R5), solar radiation storms, alerts.",
+    },
+    {
+        "tool_name": "get_ioda_outages",
+        "module_id": "ioda_outages",
+        "description": "Get internet outage detection from IODA (Georgia Tech) — BGP routing, Google traffic, active probing, darknet signals per country. Query by 2-letter country code.",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_tor_exit_nodes",
+        "module_id": "tor_exit_nodes",
+        "description": "Get current Tor exit relay nodes — IPs, bandwidth, country, flags. Query by IP or country code.",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_civil_defense_alerts",
+        "module_id": "civil_defense_alerts",
+        "description": "Get civil defense and severe weather alerts from 95+ countries via WMO CAP protocol. Query by 2-letter country code for specific alerts, or omit for global overview.",
+    },
+    {
+        "tool_name": "get_trade_comtrade",
+        "module_id": "trade_comtrade",
+        "description": "Get UN Comtrade international trade flows — imports/exports between countries by commodity. Query by reporter country code (e.g. 'US', 'CN').",
+        "required_params": {"query": str},
+    },
+    {
+        "tool_name": "get_tariff_rates",
+        "module_id": "tariff_rates",
+        "description": "Get World Bank WITS tariff rates — MFN applied tariff rates by country and product. Query by country code.",
+        "required_params": {"query": str},
+    },
+    # ── Thematic news feeds ──────────────────────────────────────
+    {
+        "tool_name": "get_security_intel_feeds",
+        "module_id": "security_intel_feeds",
+        "description": "Get security & intelligence news — Bellingcat OSINT, Crisis Group conflict analysis, War on the Rocks, Oryx combat data, Jamestown Foundation, Foreign Policy.",
+    },
+    {
+        "tool_name": "get_defense_military_feeds",
+        "module_id": "defense_military_feeds",
+        "description": "Get defense & military news — Defense News, Military Times, Breaking Defense, USNI, DefenseOne, The War Zone, Task & Purpose, UK MOD. 9 sources.",
+    },
+    {
+        "tool_name": "get_cyber_news",
+        "module_id": "cyber_news",
+        "description": "Get cybersecurity news — Krebs on Security, The Hacker News, BleepingComputer, Ars Technica Security.",
+    },
+    {
+        "tool_name": "get_maritime_news",
+        "module_id": "maritime_news",
+        "description": "Get maritime & shipping news — gCaptain, chokepoint disruptions, piracy, naval operations.",
+    },
+    {
+        "tool_name": "get_policy_feeds",
+        "module_id": "policy_feeds",
+        "description": "Get policy & think tank analysis — CSIS, Arms Control Association, FAS, Bulletin of Atomic Scientists, MEI, Brookings, Carnegie, Chatham House.",
+    },
+    {
+        "tool_name": "get_regional_conflict_feeds",
+        "module_id": "regional_conflict_feeds",
+        "description": "Get regional conflict news — BBC Middle East/Africa/Asia/LatAm, Sahel/Wagner, InSight Crime, India diplomacy, trade wars.",
+    },
 ]
 
 
@@ -596,8 +698,7 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "intelligence_risk_scores",  # get_intelligence_summary
         "intelligence_report",       # intelligence_report
     })
-    # Skip broken modules — these return empty data consistently
-    # They still exist on the server but shouldn't be exposed as MCP tools
+    # Skip broken modules — return empty data, shouldn't be exposed
     known_ids.update({
         "conflict_acled", "conflict_ucdp_events", "conflict_hapi", "unrest_events",
         "maritime_warnings", "maritime_snapshot", "military_flights", "military_posture",
@@ -606,6 +707,14 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "economic_bis_credit", "trade_flows", "trade_tariffs", "trade_restrictions",
         "trade_barriers", "supply_chain_shipping", "news_telegram", "research_trending_repos",
         "predictions", "polymarket_intel", "geo_filters", "radiation_epa", "positive_events",
+    })
+    # Skip legacy duplicates — covered by better curated tools
+    known_ids.update({
+        "opensky_aircraft",         # → get_aircraft (curated, 19 params)
+        "filings_sec_company",      # → get_sec_filings (curated)
+        "macro_worldbank_indicator", # → get_worldbank (curated)
+        "macro_imf_series",         # → get_imf_data (curated)
+        "macro_oecd_dataset",       # OECD API returns 404 anyway
     })
 
     try:
