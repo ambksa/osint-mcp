@@ -50,7 +50,7 @@ export async function run(_ctx, params) {
         cveId: cve.id || '',
         description: desc.slice(0, 300),
         cvssScore: cvss.baseScore ?? null,
-        severity: cvss.baseSeverity || (cvss.baseScore >= 9 ? 'CRITICAL' : cvss.baseScore >= 7 ? 'HIGH' : cvss.baseScore >= 4 ? 'MEDIUM' : 'LOW'),
+        severity: cvss.baseSeverity || (typeof cvss.baseScore === 'number' ? (cvss.baseScore >= 9 ? 'CRITICAL' : cvss.baseScore >= 7 ? 'HIGH' : cvss.baseScore >= 4 ? 'MEDIUM' : 'LOW') : 'UNKNOWN'),
         attackVector: cvss.attackVector || '',
         published: cve.published || '',
         lastModified: cve.lastModified || '',

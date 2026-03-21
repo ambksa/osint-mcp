@@ -22,6 +22,7 @@ class HeadlessClient:
 
     async def query_module(self, module_id: str, params: dict) -> dict:
         """Query a single module. Returns the module's data extracted from modules.<id>."""
+        params = dict(params)  # don't mutate caller's dict
         fmt = params.pop("format", "json")
         module_params = {k: v for k, v in params.items() if v is not None}
         query = {"module": module_id, "format": fmt}
@@ -41,6 +42,7 @@ class HeadlessClient:
 
     async def query_modules(self, module_ids: list[str], params: dict) -> dict:
         """Query multiple modules. Returns {module_id: data} dict."""
+        params = dict(params)  # don't mutate caller's dict
         fmt = params.pop("format", "json")
         module_params = {k: v for k, v in params.items() if v is not None}
         query = {"modules": ",".join(module_ids), "format": fmt}

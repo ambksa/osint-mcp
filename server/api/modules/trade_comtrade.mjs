@@ -25,7 +25,7 @@ export async function run(_ctx, params) {
   if (!reporter) throw new Error('query required: reporter country code (e.g. "US", "CN")');
 
   const partner = (params.partner || '').toUpperCase().trim();
-  const year = params.year || '2023';
+  const year = params.year || String(new Date().getFullYear() - 1);
   const flow = params.flow || ''; // M=import, X=export, empty=both
   const limit = Number(params.limit || 20);
 

@@ -48,7 +48,7 @@ const COUNTRIES = {
   ET: { name: 'Ethiopia', keywords: ['ethiopia', 'addis ababa', 'ethiopian', 'tigray'] },
   ML: { name: 'Mali', keywords: ['mali', 'bamako', 'malian', 'sahel'] },
   BF: { name: 'Burkina Faso', keywords: ['burkina faso', 'ouagadougou', 'burkinabe'] },
-  NE: { name: 'Niger', keywords: ['niger ', 'niamey', 'nigerien'] },
+  NE: { name: 'Niger', keywords: ['niger', 'niamey', 'nigerien', 'niger republic'] },
   MZ: { name: 'Mozambique', keywords: ['mozambique', 'maputo', 'mozambican'] },
   CM: { name: 'Cameroon', keywords: ['cameroon', 'yaounde', 'cameroonian'] },
   KE: { name: 'Kenya', keywords: ['kenya', 'nairobi', 'kenyan'] },
