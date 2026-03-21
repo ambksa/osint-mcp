@@ -22,3 +22,7 @@ dist/
 
 # Logs
 *.log
+.mcp.json
+*.modelfile
+server/api-cache.json
+server/*.png
