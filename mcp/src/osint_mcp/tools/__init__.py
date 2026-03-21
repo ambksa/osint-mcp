@@ -496,6 +496,13 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "news_telegram",
         "description": "Get Telegram OSINT channel feed. Requires WS_RELAY_URL (Railway relay server running MTProto). Returns messages from curated OSINT channels.",
     },
+    # ── GreyNoise ────────────────────────────────────────────────
+    {
+        "tool_name": "get_greynoise",
+        "module_id": "greynoise",
+        "description": "Check if an IP is a known mass scanner, bot, or benign crawler via GreyNoise. Free community API for IP lookups. Query with IP address (e.g. '8.8.8.8').",
+        "required_params": {"query": str},
+    },
     {
         "tool_name": "get_policy_feeds",
         "module_id": "policy_feeds",
@@ -739,6 +746,7 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "notams",                   # → get_notams (curated)
         "ais_vessels",              # → get_ais_vessels (curated)
         "news_telegram",            # → get_telegram_osint (curated)
+        "greynoise",                # → get_greynoise (curated)
     })
 
     try:
