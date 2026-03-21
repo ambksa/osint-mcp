@@ -1,96 +1,104 @@
 # osint-mcp
 
-MCP server exposing 64 OSINT tools for AI agents. Wraps [worldosint-headless](https://github.com/nativ3ai/worldosint-headless) as a [Model Context Protocol](https://modelcontextprotocol.io/) server using [FastMCP](https://github.com/jlowin/fastmcp).
+Open-source intelligence (OSINT) platform for AI agents. **95 MCP tools** querying **50+ live data sources** — aircraft tracking, cyber threats, GDELT events, sanctions, news, satellites, BGP routing, and more.
+
+Built on [worldosint-headless](https://github.com/koala73/worldmonitor) + [FastMCP](https://github.com/jlowin/fastmcp).
+
+## What it does
+
+Ask an AI agent a question, it calls the right OSINT tool:
+
+| Question | Tool | Data |
+|----------|------|------|
+| "planes over Dubai" | `get_aircraft` | FlightRadar24 — 400+ aircraft with routes |
+| "sanctions on Iran" | `get_opensanctions` | 78K entities from 40+ lists |
+| "is this IP malicious" | `get_greynoise` | Scanner/bot/benign classification |
+| "who owns example.com" | `get_whois` | RDAP registration, nameservers |
+| "GDP data for US" | `get_imf_datasets` | 9 key indicators with time series |
+| "military satellites" | `get_satellites` | CelesTrak orbit data |
+| "MITRE technique T1566" | `get_mitre_attack` | ATT&CK techniques, groups, malware |
+| "cyber threats" | `get_cisa_kev` | Actively exploited CVEs |
+| "earthquakes" | `get_earthquakes` | USGS real-time data |
+| "internet status Iran" | `get_ioda_outages` | BGP + Google Traffic + probing signals |
+
+All tools support `search` (text filter) and `filter` (JSON field queries like `'{"magnitude": ">5"}'`).
 
 ## Quick Start
 
-### Docker (recommended)
+### Prerequisites
 
-```bash
-git clone https://github.com/ambksa/osint-mcp.git
-cd osint-mcp
-docker compose up
-```
+- Node.js 18+ (server)
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/) (MCP)
 
-MCP server available at `http://localhost:8080/mcp`
-
-### Local Development
+### Install & Run
 
 ```bash
 git clone https://github.com/ambksa/osint-mcp.git
 cd osint-mcp
 
-# Start the headless OSINT server
+# 1. Start the OSINT server
 cd server
 npm install
 PORT=3000 node --import tsx server.mjs &
 
-# Start the MCP server (stdio mode for local use)
+# 2. Start the MCP server
 cd ../mcp
 uv sync
 uv run osint-mcp
-
-# Or SSE mode for network access
-uv run osint-mcp --transport sse --host 0.0.0.0 --port 8080
 ```
 
-## Connecting to AI Agents
+### Docker
+
+```bash
+docker compose up
+# MCP at http://localhost:8080/mcp
+```
+
+## Connect to AI Agents
+
+### Claude Code
+
+```bash
+claude mcp add osint -- uv run --directory /path/to/osint-mcp/mcp osint-mcp
+```
+
+Or add to `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "osint": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/osint-mcp/mcp", "osint-mcp"],
+      "env": { "HEADLESS_BASE_URL": "http://127.0.0.1:3000" }
+    }
+  }
+}
+```
 
 ### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-**Docker (SSE):**
-```json
-{
-  "mcpServers": {
-    "osint": {
-      "url": "http://localhost:8080/mcp"
-    }
-  }
-}
-```
-
-**Local (stdio):**
 ```json
 {
   "mcpServers": {
     "osint": {
       "command": "uv",
       "args": ["run", "--directory", "/path/to/osint-mcp/mcp", "osint-mcp"],
-      "env": {
-        "HEADLESS_BASE_URL": "http://127.0.0.1:3000"
-      }
+      "env": { "HEADLESS_BASE_URL": "http://127.0.0.1:3000" }
     }
   }
 }
 ```
 
-### Claude Code
+### SSE / Network Mode
 
-Add to your project's `.mcp.json` or `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "osint": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/osint-mcp/mcp", "osint-mcp"],
-      "env": {
-        "HEADLESS_BASE_URL": "http://127.0.0.1:3000"
-      }
-    }
-  }
-}
+```bash
+uv run osint-mcp --transport sse --host 0.0.0.0 --port 8080
+# Connect any MCP client to http://localhost:8080/mcp
 ```
 
-### Cursor / Windsurf / Other MCP Clients
-
-Any MCP-compatible client can connect via:
-- **stdio**: `uv run --directory /path/to/osint-mcp/mcp osint-mcp`
-- **SSE**: `http://localhost:8080/mcp` (when running in SSE mode or via Docker)
-
-### Python (programmatic)
+### Python
 
 ```python
 import asyncio
@@ -98,212 +106,199 @@ from fastmcp import Client
 
 async def main():
     async with Client("http://localhost:8080/mcp") as client:
-        # List available tools
-        tools = await client.list_tools()
-        for t in tools:
-            print(f"{t.name}: {t.description}")
-
-        # Call a tool
         result = await client.call_tool("get_earthquakes", {"limit": 5})
         print(result.data)
-
-        # Read a resource
-        data = await client.read_resource("osint://earthquakes")
-        print(data)
 
 asyncio.run(main())
 ```
 
-## Available Tools (57)
+## Tools (95)
 
-### Aggregate (4)
+### Aircraft (1)
 | Tool | Description |
 |------|-------------|
-| `health_check` | Verify connectivity to the headless server |
-| `list_modules` | List all available OSINT module IDs |
-| `query_modules` | Query arbitrary modules by comma-separated IDs |
-| `get_intelligence_summary` | Synthesized risk summary across all domains |
+| `get_aircraft` | FlightRadar24 — 400+ aircraft/region, origin→destination routes, military auto-tagged. 14 filter params (callsign, type, altitude, squawk, military, etc.) |
 
-### Conflict & Unrest (4)
+### Cyber Threat Intelligence (8)
 | Tool | Description |
 |------|-------------|
-| `get_conflict_acled` | Armed conflict events from ACLED |
-| `get_conflict_ucdp` | UCDP conflict events |
-| `get_conflict_hapi` | HDX HAPI humanitarian conflict summary |
-| `get_unrest_events` | Protest and civil unrest events |
+| `get_cyber_threats` | Feodo C2 server IOCs |
+| `get_cisa_kev` | CISA actively exploited CVEs |
+| `get_ransomware` | RansomLook victim posts |
+| `get_threatfox` | abuse.ch malware IOCs |
+| `get_urlhaus_urls` | Malware distribution URLs |
+| `get_nvd_cves` | NIST NVD vulnerability search with CVSS |
+| `get_greynoise` | IP reputation — scanner/bot/benign (free, no key) |
+| `get_cyber_news` | Krebs, Dark Reading, BleepingComputer, Ars Technica |
 
-### Maritime (2)
+### Network Investigation (5)
 | Tool | Description |
 |------|-------------|
-| `get_maritime_warnings` | Active navigational warnings |
-| `get_maritime_snapshot` | AIS vessel position snapshot |
+| `get_whois` | RDAP domain/IP lookup |
+| `get_certificates` | crt.sh certificate transparency |
+| `get_bgp` | RIPEstat BGP routing, AS info |
+| `get_mitre_attack` | ATT&CK techniques, groups, malware |
+| `get_intelx` | Dark web/paste/leak search (requires key) |
 
-### Military (3)
+### Sanctions & Financial Crime (3)
 | Tool | Description |
 |------|-------------|
-| `get_military_flights` | Military aircraft tracking (requires `bbox`) |
-| `get_military_posture` | Theater posture summary |
-| `get_military_usni` | USNI Fleet tracker report |
+| `get_sanctions` | OFAC SDN list |
+| `get_opensanctions` | 78K entities from 40+ sanctions lists |
+| `get_offshore_leaks` | ICIJ Panama/Paradise/Pandora Papers |
 
-### Cyber (1)
+### News & Intelligence (12)
+| Tool | Description | Sources |
+|------|-------------|---------|
+| `get_news_rss` | General world news | BBC, Reuters, AP, NPR, France 24 |
+| `get_security_intel_feeds` | OSINT & conflict analysis | Bellingcat, Crisis Group, War on the Rocks, Oryx, Foreign Policy |
+| `get_defense_military_feeds` | Military & defense | Defense News, Military Times, USNI, UK MOD, War Zone |
+| `get_cyber_news` | Cybersecurity | Krebs, Dark Reading, BleepingComputer |
+| `get_maritime_news` | Shipping & naval | gCaptain, maritime news |
+| `get_policy_feeds` | Think tank analysis | CSIS, Brookings, Carnegie, Chatham House |
+| `get_regional_conflict_feeds` | Regional hotspots | BBC ME/Africa/Asia, Sahel, InSight Crime |
+| `get_energy_commodities_news` | Energy & mining | Oil/OPEC, LNG, metals |
+| `get_gdelt_events` | Structured global events | GDELT bulk (1500/15min, no rate limit) |
+| `get_news_velocity` | Article frequency anomaly | RSS analysis |
+| `get_aviation_news` | Aviation industry | 4 feeds |
+| `get_defense_news` | Defense (legacy) | 4 feeds |
+
+### Natural Events & Weather (8)
 | Tool | Description |
 |------|-------------|
-| `get_cyber_threats` | Cyber threat IOCs and alerts |
+| `get_earthquakes` | USGS data |
+| `get_natural_events` | NASA EONET (volcanoes, storms, floods) |
+| `get_disaster_alerts` | GDACS global alerts |
+| `get_weather_alerts` | NWS US severe weather |
+| `get_tropical_weather` | NOAA NHC cyclones |
+| `get_climate_anomalies` | NOAA/ERA5 |
+| `get_space_weather` | Solar flares, geomagnetic storms |
+| `get_civil_defense_alerts` | WMO CAP — 95+ countries |
 
-### Infrastructure (4)
+### Economics (9)
 | Tool | Description |
 |------|-------------|
-| `get_infrastructure_outages` | Internet outage events |
-| `get_infrastructure_cable_health` | Undersea cable status |
-| `get_infrastructure_baseline` | Temporal baseline metrics |
-| `get_infrastructure_services` | Service availability checks |
+| `get_imf_datasets` | 9 key indicators per country (GDP, inflation, debt, etc.) |
+| `get_economic_macro` | FRED signals |
+| `get_bis_rates` | Central bank rates (11 economies) |
+| `get_bis_fx` | Exchange rates |
+| `get_us_spending` | USASpending.gov |
+| `get_us_treasury` | Monthly Treasury Statement |
+| `get_worldbank` | World Bank indicators |
+| `get_imf_data` | IMF DataMapper single indicator |
+| `get_trade_comtrade` | UN Comtrade trade flows |
 
-### Natural Events (3)
+### Military & Space (3)
 | Tool | Description |
 |------|-------------|
-| `get_earthquakes` | USGS earthquake data |
-| `get_wildfires` | NASA FIRMS fire detections |
-| `get_climate_anomalies` | Climate anomaly tracking |
+| `get_military_usni` | USNI Fleet tracker |
+| `get_satellites` | CelesTrak orbits (military, GPS, Starlink) |
+| `get_notams` | FAA NOTAMs (requires key) |
 
-### Markets (5)
+### Maritime & Supply Chain (5)
 | Tool | Description |
 |------|-------------|
-| `get_markets` | Stock/index quotes |
-| `get_crypto` | Cryptocurrency quotes |
-| `get_commodities` | Commodity prices |
-| `get_stablecoins` | Stablecoin market data |
-| `get_etf_flows` | ETF fund flow data |
+| `get_chokepoints` | Suez, Panama, Hormuz, Malacca |
+| `get_critical_minerals` | Lithium, cobalt, rare earths |
+| `get_submarine_cables` | 700+ undersea cables |
+| `get_ais_vessels` | Live ship positions (requires key) |
+| `get_maritime_news` | gCaptain, shipping news |
 
-### Economics (5)
+### Intelligence & Risk (4)
 | Tool | Description |
 |------|-------------|
-| `get_economic_macro` | FRED macro economic signals |
-| `get_economic_energy` | Energy prices and data |
-| `get_bis_rates` | BIS central bank policy rates |
-| `get_bis_fx` | BIS exchange rates |
-| `get_bis_credit` | BIS credit indicators |
+| `intelligence_report` | Full report from 14+ modules |
+| `get_intelligence_findings` | Prioritized alerts from 11 sources |
+| `get_country_risk_signals` | Raw evidence from 9 feeds, 72 countries |
+| `get_gdelt_events` | 1500 structured events/15min |
 
-### Trade (4)
-| Tool | Description |
-|------|-------------|
-| `get_trade_flows` | International trade flow data |
-| `get_trade_tariffs` | Tariff trends |
-| `get_trade_restrictions` | Trade restrictions |
-| `get_trade_barriers` | Trade barriers |
+### Other (19)
+Markets (4), geolocation (3), humanitarian (3), infrastructure (4), enrichment (6), aviation, radiation, Telegram, tariffs, conflict (ACLED), Tor exit nodes, PizzINT.
 
-### Supply Chain (3)
-| Tool | Description |
-|------|-------------|
-| `get_shipping_rates` | Container shipping rates |
-| `get_chokepoints` | Maritime chokepoint status |
-| `get_critical_minerals` | Critical mineral supply data |
+See [OSINT_MCP_TOOLS.md](OSINT_MCP_TOOLS.md) for the complete reference.
 
-### News & Intelligence (3)
-| Tool | Description |
-|------|-------------|
-| `get_news_rss` | Aggregated RSS news feeds |
-| `get_news_telegram` | Telegram OSINT channel relay |
-| `get_gdelt` | GDELT document search |
+## API Keys (optional)
 
-### Research (4)
-| Tool | Description |
-|------|-------------|
-| `get_tech_events` | Technology events and conferences |
-| `get_arxiv` | Recent arXiv papers |
-| `get_trending_repos` | GitHub trending repositories |
-| `get_hackernews` | Hacker News top stories |
+82 tools work without any API keys. 13 tools need free keys for enhanced data:
 
-### Prediction Markets (2)
-| Tool | Description |
-|------|-------------|
-| `get_predictions` | Polymarket prediction markets |
-| `get_polymarket_intel` | Polymarket live trades and signals |
+| Key | Tools | Get it at |
+|-----|-------|-----------|
+| `FRED_API_KEY` | `get_fred_series` | [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) |
+| `FMP_API_KEY` | `get_fmp_*` (4 tools) | [financialmodelingprep.com](https://site.financialmodelingprep.com/developer) |
+| `ACLED_ACCESS_TOKEN` | `get_acled_conflicts` | [acleddata.com](https://acleddata.com/register/) |
+| `AISSTREAM_API_KEY` | `get_ais_vessels` | [aisstream.io](https://aisstream.io/apikeys) |
+| `INTELX_API_KEY` | `get_intelx` | [intelx.io](https://intelx.io/signup) |
+| `FAA_NOTAM_API_KEY` | `get_notams` | [api.faa.gov](https://api.faa.gov/) |
+| `GREYNOISE_API_KEY` | `get_greynoise` (enterprise) | [greynoise.io](https://viz.greynoise.io/signup) |
 
-### Geolocation (3)
-| Tool | Description |
-|------|-------------|
-| `get_geocode` | Place name to coordinates (requires `query`) |
-| `get_geo_filters` | OSM geolocation filters |
-| `get_satellite_snapshot` | Satellite imagery URL generation |
+Add to `server/.env`:
+```bash
+cp server/.env.example server/.env
+# Edit and add your keys
+```
 
-### Humanitarian (3)
-| Tool | Description |
-|------|-------------|
-| `get_displacement` | UNHCR displacement data |
-| `get_population_exposure` | WorldPop exposure estimates |
-| `get_giving_summary` | Philanthropic giving data |
+## Adding New Data Sources
 
-### Miscellaneous (4)
-| Tool | Description |
-|------|-------------|
-| `get_aviation_delays` | Airport delay tracking |
-| `get_positive_events` | Positive geopolitical events |
-| `get_risk_scores` | Risk scoring by region |
-| `get_pizzint` | PizzINT status monitor |
+Drop a `.mjs` file in `server/api/modules/`:
 
-## MCP Resources
+```javascript
+// server/api/modules/my_feed.mjs
+export const name = 'my_feed';
+export const description = 'My custom data source';
 
-Static resources and templates for browsable data access:
+export async function run(_ctx, params) {
+  const query = params.query || '';
+  const resp = await fetch(`https://api.example.com/data?q=${query}`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return await resp.json();
+}
+```
 
-| Resource URI | Description |
-|-------------|-------------|
-| `osint://earthquakes` | USGS earthquake data |
-| `osint://wildfires` | NASA FIRMS fire detections |
-| `osint://climate` | Climate anomaly data |
-| `osint://conflict/{source}` | Conflict data (acled, ucdp, hapi) |
-| `osint://maritime/{type}` | Maritime data (warnings, snapshot) |
-| `osint://military/{type}` | Military data (flights, posture, usni) |
-
-## Tool Parameters
-
-Every tool accepts these optional parameters:
-- `format` — `"json"` (default), `"md"`, or `"both"`
-- `limit` — Max results to return
-- `bbox` — Bounding box filter (lat/lon)
-
-Some tools have required parameters:
-- `get_geocode` requires `query: str`
-- `get_military_flights` requires `bbox: str`
-
-## Extensibility
-
-Adding a new OSINT module from the headless server = adding one dict entry to `TOOL_REGISTRY` in `mcp/src/osint_mcp/tools/__init__.py`:
+Then add to the curated registry in `mcp/src/osint_mcp/tools/__init__.py`:
 
 ```python
 {
-    "tool_name": "get_new_module",
-    "module_id": "new_module_id",
-    "description": "Description for agents.",
+    "tool_name": "get_my_feed",
+    "module_id": "my_feed",
+    "description": "My custom data source. Query with keyword.",
+    "required_params": {"query": str},
 },
 ```
 
-No new functions or wiring needed. The `query_modules` tool also works as a generic escape hatch for any module not yet in the registry.
+Restart server. The tool appears in MCP with `search` and `filter` support automatically.
+
+## Architecture
+
+```
+AI Agent (Claude, GPT, Gemini, etc.)
+    ↓ MCP Protocol (stdio or SSE)
+mcp/ (Python FastMCP server)
+    ↓ HTTP
+server/ (Node.js headless OSINT server)
+    ├── api/headless.js (core modules)
+    ├── api/modules/*.mjs (31 plugin modules)
+    └── 50+ upstream APIs (USGS, GDELT, FR24, CISA, abuse.ch, ...)
+```
 
 ## Configuration
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
-| `HEADLESS_BASE_URL` | `http://127.0.0.1:3000` | URL of the headless OSINT server |
-| `HEADLESS_TIMEOUT` | `60` | HTTP request timeout in seconds |
-| `OSINT_MCP_API_KEY` | (unset) | Bearer token for SSE mode auth |
+| `HEADLESS_BASE_URL` | `http://127.0.0.1:3000` | OSINT server URL |
+| `HEADLESS_TIMEOUT` | `60` | Request timeout (seconds) |
+| `OSINT_MCP_API_KEY` | (unset) | Bearer token for SSE auth |
+| `PORT` | `3000` | Server port |
 
-## Architecture
+## Documentation
 
-```
-mcp/                        server/
-├── src/osint_mcp/          ├── api/headless.js (48+ OSINT modules)
-│   ├── server.py           ├── server.mjs
-│   ├── client.py           └── Dockerfile
-│   ├── resources.py
-│   └── tools/
-│       ├── __init__.py     ← declarative tool registry
-│       └── aggregate.py
-├── pyproject.toml
-└── Dockerfile
-
-Agent → MCP Client → osint-mcp (FastMCP) → httpx → headless server → External OSINT APIs
-```
+- [OSINT_MCP_TOOLS.md](OSINT_MCP_TOOLS.md) — complete 95-tool reference
+- [AGENT_PROMPT.md](AGENT_PROMPT.md) — system prompt for AI agents
+- [BLOG_POST.md](BLOG_POST.md) — project introduction
+- [COMPARISON.md](COMPARISON.md) — vs WorldMonitor headless
+- [skill/osint/SKILL.md](skill/osint/SKILL.md) — Claude Code skill
 
 ## License
 
-See individual component licenses.
+See individual component licenses. Built on [worldosint-headless](https://github.com/koala73/worldmonitor) (AGPL-3.0).
