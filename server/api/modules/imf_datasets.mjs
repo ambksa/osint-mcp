@@ -1,97 +1,126 @@
 /**
- * IMF Datasets — IFS, DOT, BOP, FSI, CPIS, CDIS via CompactData API
- * Free, no auth. Full time-series support (annual, quarterly, monthly).
- * Based on github.com/c-cf/imf-data-mcp approach.
+ * IMF Datasets — multiple indicators via DataMapper API
+ * Free, no auth. Supports IFS, WEO indicators with full time series.
+ * DataMapper is reliable; CompactData (SDMX) is frequently unreachable.
  */
 export const name = 'imf_datasets';
-export const description = 'IMF economic datasets via CompactData API — IFS (financial stats), DOT (trade), BOP (balance of payments), FSI (financial soundness), CPIS (portfolio investment), CDIS (FDI). Query: dataset.country.indicator (e.g. "IFS.US.NGDP_XDC" or just "FSI.US").';
+export const description = 'IMF economic indicators via DataMapper API — GDP growth, inflation, debt, unemployment, current account, exchange rates for any country. Query: INDICATOR.COUNTRY (e.g. "NGDP_RPCH.USA", "PCPIPCH.DEU") or just country code for key indicators.';
 
-const DATASETS = {
-  IFS: 'International Financial Statistics',
-  DOT: 'Direction of Trade Statistics',
-  BOP: 'Balance of Payments',
-  FSI: 'Financial Soundness Indicators',
-  CPIS: 'Coordinated Portfolio Investment Survey',
-  CDIS: 'Coordinated Direct Investment Survey',
-  GFSMAB: 'Government Finance Statistics',
-  MFS: 'Monetary and Financial Statistics',
+// Key IMF DataMapper indicators
+const KEY_INDICATORS = {
+  NGDP_RPCH: 'Real GDP Growth (%)',
+  PCPIPCH: 'Inflation Rate (%)',
+  GGXWDG_NGDP: 'Government Debt (% GDP)',
+  LUR: 'Unemployment Rate (%)',
+  BCA_NGDPD: 'Current Account (% GDP)',
+  NGDPD: 'GDP (USD billions)',
+  NGDPDPC: 'GDP Per Capita (USD)',
+  LP: 'Population (millions)',
+  GGR_NGDP: 'Government Revenue (% GDP)',
+  GGX_NGDP: 'Government Expenditure (% GDP)',
+  PPPSH: 'PPP Share of World (%)',
 };
 
-const ISO2_TO_ISO2 = {
-  US: 'US', GB: 'GB', DE: 'DE', FR: 'FR', JP: 'JP', CN: 'CN',
-  IN: 'IN', BR: 'BR', RU: 'RU', AU: 'AU', CA: 'CA', KR: 'KR',
-  MX: 'MX', ID: 'ID', TR: 'TR', SA: 'SA', AE: 'AE', IL: 'IL',
-  IR: 'IR', UA: 'UA', PK: 'PK', EG: 'EG',
+const ISO2_TO_ISO3 = {
+  US: 'USA', GB: 'GBR', DE: 'DEU', FR: 'FRA', JP: 'JPN', CN: 'CHN',
+  IN: 'IND', BR: 'BRA', RU: 'RUS', AU: 'AUS', CA: 'CAN', KR: 'KOR',
+  MX: 'MEX', ID: 'IDN', TR: 'TUR', SA: 'SAU', AE: 'ARE', IL: 'ISR',
+  IR: 'IRN', UA: 'UKR', PK: 'PAK', EG: 'EGY', NG: 'NGA', ZA: 'ZAF',
+  AR: 'ARG', CL: 'CHL', CO: 'COL', PE: 'PER', VE: 'VEN', TH: 'THA',
+  MY: 'MYS', SG: 'SGP', PH: 'PHL', VN: 'VNM', BD: 'BGD', PL: 'POL',
+  SE: 'SWE', NO: 'NOR', FI: 'FIN', NZ: 'NZL', IE: 'IRL', CH: 'CHE',
+  NL: 'NLD', IT: 'ITA', ES: 'ESP', GR: 'GRC', QA: 'QAT', KW: 'KWT',
+  BH: 'BHR', OM: 'OMN', JO: 'JOR', IQ: 'IRQ', AF: 'AFG',
 };
+
+function pickLatest(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const years = Object.keys(obj).filter((k) => /^\d{4}$/.test(k)).sort();
+  if (!years.length) return null;
+  const year = years[years.length - 1];
+  const value = Number(obj[year]);
+  return Number.isFinite(value) ? { year, value } : null;
+}
 
 export async function run(_ctx, params) {
   const query = (params.query || '').trim().toUpperCase();
-  if (!query) throw new Error('query required. Format: DATASET.COUNTRY.INDICATOR or DATASET.COUNTRY\nDatasets: ' + Object.keys(DATASETS).join(', '));
+  if (!query) throw new Error('query required: INDICATOR.COUNTRY (e.g. "NGDP_RPCH.USA") or just country code (e.g. "US") for key indicators');
 
   const parts = query.split('.');
-  const dataset = parts[0] || 'IFS';
-  const country = parts[1] || 'US';
-  const indicator = parts[2] || '';
-  const frequency = (params.frequency || 'A').toUpperCase(); // A=annual, Q=quarterly, M=monthly
-  const startPeriod = params.start || '';
-  const endPeriod = params.end || '';
-  const limit = Number(params.limit || 50);
+  let indicators, country;
 
-  if (!DATASETS[dataset]) {
-    return { error: `Unknown dataset: ${dataset}. Available: ${Object.keys(DATASETS).join(', ')}`, datasets: DATASETS };
+  if (parts.length >= 2) {
+    // INDICATOR.COUNTRY format
+    indicators = [parts[0]];
+    country = ISO2_TO_ISO3[parts[1]] || parts[1];
+  } else if (/^[A-Z]{2,3}$/.test(query)) {
+    // Just country — fetch all key indicators
+    country = ISO2_TO_ISO3[query] || query;
+    indicators = Object.keys(KEY_INDICATORS);
+  } else {
+    // Assume it's an indicator for all major economies
+    indicators = [query];
+    country = '';
   }
 
-  // Build CompactData dimension string: frequency.country[.indicator]
-  const dimension = indicator ? `${frequency}.${country}.${indicator}` : `${frequency}.${country}`;
-
-  const url = new URL(`https://dataservices.imf.org/REST/SDMX_JSON.svc/CompactData/${dataset}/${dimension}`);
-  if (startPeriod) url.searchParams.set('startPeriod', startPeriod);
-  if (endPeriod) url.searchParams.set('endPeriod', endPeriod);
-
-  const resp = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!resp.ok) throw new Error(`IMF CompactData HTTP ${resp.status} for ${dataset}/${dimension}`);
-  const data = await resp.json();
-
-  // Parse IMF CompactData JSON response
-  const dataSet = data?.CompactData?.DataSet;
-  const series = dataSet?.Series;
-  const seriesArr = Array.isArray(series) ? series : series ? [series] : [];
-
   const results = [];
-  for (const s of seriesArr.slice(0, limit)) {
-    const obs = s.Obs;
-    const obsArr = Array.isArray(obs) ? obs : obs ? [obs] : [];
-    const indicatorCode = s['@INDICATOR'] || s['@SUBJECT'] || indicator || '';
 
-    const observations = obsArr.map((o) => ({
-      period: o['@TIME_PERIOD'] || '',
-      value: o['@OBS_VALUE'] != null ? Number(o['@OBS_VALUE']) : null,
-      status: o['@OBS_STATUS'] || '',
-    })).filter((o) => o.value !== null);
-
-    if (observations.length > 0) {
-      results.push({
-        country: s['@REF_AREA'] || country,
-        indicator: indicatorCode,
-        frequency: s['@FREQ'] || frequency,
-        unit: s['@UNIT_MULT'] || '',
-        observations: observations.slice(-limit),
-        latest: observations[observations.length - 1],
+  // Fetch each indicator in parallel
+  const fetches = indicators.map(async (indicator) => {
+    try {
+      const urlPath = country ? `${indicator}/${country}` : indicator;
+      const url = `https://www.imf.org/external/datamapper/api/v1/${urlPath}`;
+      const resp = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
       });
-    }
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const values = data?.values?.[indicator];
+      if (!values) return null;
+
+      if (country) {
+        const countryValues = values[country] || {};
+        const latest = pickLatest(countryValues);
+        if (latest || Object.keys(countryValues).length > 0) {
+          return {
+            indicator,
+            indicatorName: KEY_INDICATORS[indicator] || indicator,
+            country,
+            latest,
+            timeSeries: countryValues,
+            dataPoints: Object.keys(countryValues).length,
+          };
+        }
+      } else {
+        // Multiple countries for one indicator
+        const entries = [];
+        for (const [c, vals] of Object.entries(values)) {
+          const latest = pickLatest(vals);
+          if (latest) entries.push({ country: c, ...latest });
+        }
+        entries.sort((a, b) => b.value - a.value);
+        return {
+          indicator,
+          indicatorName: KEY_INDICATORS[indicator] || indicator,
+          countries: entries.slice(0, Number(params.limit || 30)),
+          totalCountries: entries.length,
+        };
+      }
+      return null;
+    } catch { return null; }
+  });
+
+  const settled = await Promise.allSettled(fetches);
+  for (const s of settled) {
+    if (s.status === 'fulfilled' && s.value) results.push(s.value);
   }
 
   return {
-    dataset,
-    datasetName: DATASETS[dataset],
-    country,
-    indicator: indicator || '(all)',
-    frequency,
-    series: results,
-    seriesCount: results.length,
-    source: 'IMF CompactData API',
+    indicators: results,
+    country: country || 'multiple',
+    query,
+    availableIndicators: KEY_INDICATORS,
+    source: 'IMF DataMapper API',
   };
 }
