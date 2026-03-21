@@ -502,6 +502,69 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "energy_commodities_news",
         "description": "Get energy & commodities news — oil/OPEC, natural gas/LNG, mining, metals, uranium. Critical for supply chain and geopolitical analysis.",
     },
+    # ── Satellite Tracking ─────────────────────────────────────
+    {
+        "tool_name": "get_satellites",
+        "module_id": "celestrak_satellites",
+        "description": "Satellite orbit tracking from CelesTrak — active sats, reconnaissance, GPS, Starlink, weather, military. Query by group (e.g. 'military', 'stations', 'starlink', 'active').",
+        "required_params": {"query": str},
+    },
+    # ── MITRE ATT&CK ────────────────────────────────────────────
+    {
+        "tool_name": "get_mitre_attack",
+        "module_id": "mitre_attack",
+        "description": "MITRE ATT&CK framework — search adversary tactics, techniques, groups, malware. Query by technique ID (T1566), group (APT28), or keyword (phishing).",
+        "required_params": {"query": str},
+    },
+    # ── ICIJ Offshore Leaks ──────────────────────────────────────
+    {
+        "tool_name": "get_offshore_leaks",
+        "module_id": "icij_offshoreleaks",
+        "description": "ICIJ Offshore Leaks — search Panama Papers, Paradise Papers, Pandora Papers for offshore entities and officers.",
+        "required_params": {"query": str},
+    },
+    # ── Certificate Transparency ─────────────────────────────────
+    {
+        "tool_name": "get_certificates",
+        "module_id": "cert_transparency",
+        "description": "Certificate Transparency via crt.sh — find all SSL/TLS certificates ever issued for a domain. Detects phishing, infrastructure standup.",
+        "required_params": {"query": str},
+    },
+    # ── WHOIS/RDAP ───────────────────────────────────────────────
+    {
+        "tool_name": "get_whois",
+        "module_id": "rdap_whois",
+        "description": "Domain and IP WHOIS/RDAP lookup — registrar, dates, nameservers, abuse contacts. Query with domain (example.com) or IP (8.8.8.8).",
+        "required_params": {"query": str},
+    },
+    # ── BGP Routing ──────────────────────────────────────────────
+    {
+        "tool_name": "get_bgp",
+        "module_id": "bgp_routing",
+        "description": "BGP routing intelligence via RIPEstat — AS info, prefix announcements, routing status, geolocation, abuse contacts. Query with IP, prefix, or ASN.",
+        "required_params": {"query": str},
+    },
+    # ── IMF Full Datasets ────────────────────────────────────────
+    {
+        "tool_name": "get_imf_datasets",
+        "module_id": "imf_datasets",
+        "description": "IMF economic datasets (CompactData API) — IFS, DOT, BOP, FSI, CPIS, CDIS, MFS, GFSMAB. Full time-series. Query: DATASET.COUNTRY.INDICATOR (e.g. 'IFS.US.NGDP_XDC', 'FSI.US').",
+        "required_params": {"query": str},
+    },
+    # ── ACLED Conflicts ──────────────────────────────────────────
+    {
+        "tool_name": "get_acled_conflicts",
+        "module_id": "acled_conflicts",
+        "description": "ACLED armed conflict events — battles, protests, riots, violence. Requires ACLED_ACCESS_TOKEN (free at acleddata.com). Query by country.",
+        "required_params": {"query": str},
+    },
+    # ── Intelligence X ───────────────────────────────────────────
+    {
+        "tool_name": "get_intelx",
+        "module_id": "intelx_search",
+        "description": "Intelligence X — search dark web, paste sites, data leaks for emails, domains, IPs. Requires INTELX_API_KEY (free tier at intelx.io).",
+        "required_params": {"query": str},
+    },
     # ── GreyNoise ────────────────────────────────────────────────
     {
         "tool_name": "get_greynoise",
@@ -754,6 +817,15 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "news_telegram",            # → get_telegram_osint (curated)
         "greynoise",                # → get_greynoise (curated)
         "energy_commodities_news",  # → get_energy_commodities_news (curated)
+        "celestrak_satellites",     # → get_satellites (curated)
+        "mitre_attack",             # → get_mitre_attack (curated)
+        "icij_offshoreleaks",       # → get_offshore_leaks (curated)
+        "cert_transparency",        # → get_certificates (curated)
+        "rdap_whois",               # → get_whois (curated)
+        "bgp_routing",              # → get_bgp (curated)
+        "imf_datasets",             # → get_imf_datasets (curated)
+        "acled_conflicts",          # → get_acled_conflicts (curated)
+        "intelx_search",            # → get_intelx (curated)
     })
 
     try:
