@@ -26,7 +26,7 @@ All from one MCP server. No API keys required for core functionality.
 ## Architecture
 
 ```
-AI Agent (Claude, GPT, Hermes, etc.)
+AI Agent (Claude, GPT, Gemini, or any MCP-compatible agent)
     ↓ MCP Protocol
 osint-mcp (Python FastMCP server)
     ↓ HTTP

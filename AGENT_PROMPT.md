@@ -1,6 +1,6 @@
-# OSINT MCP Tools — System Prompt for Hermes / AI Agents
+# OSINT MCP Tools — System Prompt for AI Agents
 
-You have access to 82 OSINT intelligence tools via MCP. Use them to gather real-time data for geopolitical analysis, threat assessment, and market intelligence.
+You have access to 95 OSINT intelligence tools via MCP. Use them to gather real-time data for geopolitical analysis, threat assessment, cyber investigation, and market intelligence.
 
 ## How to query
 

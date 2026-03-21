@@ -1,181 +1,246 @@
 ---
 name: osint
-description: OSINT intelligence gathering and analysis using 105+ MCP tools covering aircraft tracking, cyber threats, GDELT events, sanctions (78K entities), news (55+ RSS sources), natural disasters, economics, military, maritime, geolocation, humanitarian, civil defense (95+ countries), and country risk signals. Use when the user asks about geopolitical events, threat assessments, regional situations, flights, sanctions, economic conditions, cyber threats, natural disasters, or any intelligence analysis task.
+description: OSINT intelligence platform with 95 MCP tools covering aircraft (FlightRadar24), cyber threats (CISA/ThreatFox/NVD/GreyNoise), GDELT events (1500/15min), sanctions (78K entities), 65+ RSS news sources, natural disasters (95+ countries), economics (IMF/BIS/FRED), satellites (CelesTrak), BGP routing, WHOIS, certificate transparency, MITRE ATT&CK, ICIJ offshore leaks, and more. Use for geopolitical events, threat assessment, flight tracking, sanctions checks, cyber investigations, economic analysis, or any intelligence task.
 ---
 
-# OSINT Intelligence
+# OSINT Intelligence Platform
 
-105+ real-time OSINT tools and 6 browsable resources via osint-mcp. 63 curated tools with hand-tuned params + 42 auto-discovered from server modules and plugins. 55+ RSS sources across 7 thematic feed categories. All tools support universal `search` and `filter` params.
+95 MCP tools querying 50+ live data sources. All tools support `search` (text filter) and `filter` (JSON field queries). No API keys required for 82 tools.
 
-## Tool access
+## Quick reference — what to call for common questions
 
-Tools are available as MCP tools prefixed with `mcp__osint__`. Call them directly.
+| Question | Tool | Example params |
+|----------|------|---------------|
+| "planes over Dubai" | `get_aircraft` | `bbox="22,51,27,57"` |
+| "where is flight UAE508" | `get_aircraft` | `bbox="22,51,27,57", callsign="UAE508"` |
+| "military aircraft Europe" | `get_aircraft` | `bbox="35,-10,60,30", military=true` |
+| "intelligence briefing on UAE" | `intelligence_report` | `query="UAE"` |
+| "risk signals for Iran" | `get_country_risk_signals` | `query="Iran"` |
+| "what's happening now" | `get_intelligence_findings` | |
+| "cyber threats" | `get_cisa_kev` + `get_ransomware` + `get_threatfox` | |
+| "is this IP malicious" | `get_greynoise` | `query="1.2.3.4"` |
+| "who owns this domain" | `get_whois` | `query="example.com"` |
+| "SSL certs for domain" | `get_certificates` | `query="example.com"` |
+| "BGP info for Google" | `get_bgp` | `query="AS15169"` |
+| "sanctions on Iran" | `get_opensanctions` | `query="Iran"` |
+| "offshore entities" | `get_offshore_leaks` | `query="company name"` |
+| "GDP data for US" | `get_imf_datasets` | `query="US"` |
+| "earthquakes" | `get_earthquakes` | |
+| "chokepoint status" | `get_chokepoints` | |
+| "internet status Iran" | `get_ioda_outages` | `query="IR"` |
+| "military satellites" | `get_satellites` | `query="military"` |
+| "MITRE technique" | `get_mitre_attack` | `query="T1566"` or `query="APT28"` |
+| "defense news" | `get_defense_military_feeds` | |
+| "Bellingcat/OSINT news" | `get_security_intel_feeds` | |
+| "policy analysis" | `get_policy_feeds` | |
+| "GDELT events for Iran" | `get_gdelt_events` | `query="Iran"` |
+| "trade flows US-China" | `get_trade_comtrade` | `query="US", partner="CN"` |
+| "NOTAMs for Dubai" | `get_notams` | `query="OMDB"` |
+| "vessel tracking" | `get_ais_vessels` | `bbox="24,54,26,56"` |
+| "space weather" | `get_space_weather` | |
+| "malware URLs" | `get_urlhaus_urls` | |
+| "CVE search" | `get_nvd_cves` | `query="apache"` |
 
-## First checks
+## All 95 tools
 
-1. Call `health_check` — should return `{"ok": true}`
-2. If unreachable, the OSINT server needs to be started
-3. Call `list_modules` to see all available data sources
+### System & Aggregate (6)
+- `version` — git commit, tool counts, server health
+- `health_check` — verify server connectivity
+- `list_modules` — list all module IDs
+- `query_modules(modules)` — query multiple modules by comma-separated IDs
+- `intelligence_report(query)` — full report from 14+ modules, filtered by keywords
+- `get_intelligence_findings` — prioritized alerts fused from 11 sources
 
-## Universal filtering (all tools)
+### Aircraft (1)
+- `get_aircraft(bbox)` — FlightRadar24, 400+ aircraft/region, origin→destination routes, military auto-tagged. Filters: `callsign`, `registration`, `aircraft_type`, `squawk`, `military`, `on_ground`, `min_altitude_ft`, `max_altitude_ft`, `min_speed_kts`, `emergency`
 
-Every tool accepts:
+### Cyber Threat Intelligence (8)
+- `get_cyber_threats` — Feodo C2 servers
+- `get_cisa_kev(query)` — CISA actively exploited CVEs
+- `get_ransomware` — RansomLook victim posts
+- `get_threatfox` — abuse.ch malware IOCs
+- `get_urlhaus_urls` — malware distribution URLs
+- `get_nvd_cves(query)` — NIST NVD with CVSS scores
+- `get_greynoise(query)` — IP reputation (scanner/bot/benign)
+- `get_cyber_news` — Krebs, Dark Reading, BleepingComputer, Ars Technica
+
+### Network & Infrastructure Investigation (5)
+- `get_whois(query)` — RDAP domain/IP lookup (registrar, dates, nameservers)
+- `get_certificates(query)` — crt.sh certificate transparency
+- `get_bgp(query)` — RIPEstat BGP routing, AS info, abuse contacts
+- `get_mitre_attack(query)` — ATT&CK techniques, groups, malware
+- `get_intelx(query)` — dark web/paste/leak search (requires INTELX_API_KEY)
+
+### Natural Events & Weather (8)
+- `get_earthquakes` — USGS data
+- `get_climate_anomalies` — NOAA/ERA5
+- `get_natural_events` — NASA EONET (volcanoes, storms, floods)
+- `get_disaster_alerts` — GDACS global alerts
+- `get_tropical_weather` — NOAA NHC cyclones
+- `get_weather_alerts` — NWS US severe weather
+- `get_space_weather` — NOAA solar flares, geomagnetic storms (G/R/S scales)
+- `get_civil_defense_alerts` — WMO CAP from 95+ countries
+
+### Economics & Trade (9)
+- `get_economic_macro` — FRED signals (GDP, unemployment, CPI)
+- `get_bis_rates` — central bank policy rates (11 economies)
+- `get_bis_fx` — exchange rates
+- `get_us_spending` — USASpending.gov
+- `get_us_treasury` — Monthly Treasury Statement
+- `get_worldbank(query, indicator)` — World Bank indicators
+- `get_imf_data(query, indicator)` — IMF DataMapper single indicator
+- `get_imf_datasets(query)` — IMF multi-indicator (query "US" for 9 indicators, or "NGDP_RPCH.DEU")
+- `get_trade_comtrade(query)` — UN Comtrade trade flows
+
+### Markets & Crypto (4)
+- `get_crypto` — CoinGecko quotes
+- `get_stablecoins` — stablecoin market
+- `get_fear_greed` — Crypto Fear & Greed Index (30-day)
+- `get_bitcoin_hashrate` — network hashrate (1 month)
+
+### Sanctions & Security (7)
+- `get_sanctions(query)` — OFAC SDN list
+- `get_opensanctions(query)` — 78K entities from 40+ lists (OFAC, EU, UN, UK, AU + PEPs)
+- `get_travel_advisories(query)` — US/UK/NZ government advisories
+- `get_health_advisories` — CDC, ECDC, WHO outbreaks
+- `get_embassy_alerts` — US Embassy security alerts
+- `get_country_facts(query)` — country profile with demographics
+- `get_offshore_leaks(query)` — ICIJ Panama/Paradise/Pandora Papers
+
+### News & Intelligence (12)
+- `get_news_rss` — BBC, Reuters, AP, CNN, Guardian, NPR, France 24 (12 sources)
+- `get_gdelt(query)` — GDELT article search (rate-limited)
+- `get_gdelt_events(query)` — GDELT bulk events (1500/15min, no rate limit, CAMEO codes)
+- `get_news_velocity` — article frequency anomaly detection
+- `get_aviation_news` — aviation RSS
+- `get_defense_news` — defense RSS (legacy, 4 feeds)
+- `get_security_intel_feeds` — Bellingcat, Crisis Group, War on the Rocks, Oryx, Jamestown, Foreign Policy, Foreign Affairs, InSight Crime
+- `get_defense_military_feeds` — Defense News, Military Times, USNI, UK MOD, War Zone, Task & Purpose (9 sources)
+- `get_cyber_news` — Krebs, Hacker News, BleepingComputer, Dark Reading, Ransomware.live
+- `get_maritime_news` — gCaptain, maritime/chokepoint news
+- `get_policy_feeds` — CSIS, Brookings, Carnegie, Chatham House, MEI, Arms Control, FAS, Bulletin (8 think tanks)
+- `get_regional_conflict_feeds` — BBC ME/Africa/Asia/LatAm, Sahel, InSight Crime, India
+
+### Military & Space (3)
+- `get_military_usni` — USNI Fleet tracker (US Navy deployments)
+- `get_satellites(query)` — CelesTrak orbits (military, GPS, Starlink, weather)
+- `get_notams(query)` — FAA NOTAMs by ICAO code (requires FAA_NOTAM_API_KEY)
+
+### Maritime & Supply Chain (5)
+- `get_chokepoints` — Suez, Panama, Hormuz, Malacca status
+- `get_critical_minerals` — lithium, cobalt, rare earths
+- `get_submarine_cables(query)` — 700+ undersea cables
+- `get_ais_vessels(bbox)` — live ship positions (requires AISSTREAM_API_KEY)
+- `get_energy_commodities_news` — oil/OPEC, LNG, mining, metals
+
+### Intelligence & Risk (3)
+- `get_intelligence_findings` — prioritized alerts from 11 modules
+- `get_country_risk_signals(query)` — raw evidence from 9 feeds for 72 countries
+- `get_pizzint` — Pentagon Pizza Index
+
+### Geolocation & Satellite (3)
+- `get_geocode(query)` — place name → coordinates
+- `get_satellite_snapshot(query)` — satellite imagery URLs
+- `get_satellite_search(bbox)` — Sentinel-2 imagery search
+
+### Humanitarian (3)
+- `get_displacement` — UNHCR refugee/IDP data
+- `get_population_exposure` — WorldPop estimates
+- `get_giving_summary` — humanitarian funding
+
+### Infrastructure (4)
+- `get_infrastructure_outages` — BGP outages
+- `get_infrastructure_services` — service availability (30+ platforms)
+- `get_submarine_cables(query)` — undersea cables
+- `get_ioda_outages(query)` — IODA multi-signal internet monitoring per country
+
+### Enrichment & Research (6)
+- `get_sec_filings(query)` — SEC EDGAR (8-K, 10-K, 10-Q)
+- `get_github_activity(query)` — GitHub org events
+- `get_hn_search(query)` — Hacker News search
+- `get_hackernews` — HN top stories
+- `get_tech_events` — technology conferences
+- `get_arxiv(query)` — arXiv paper search
+
+### Other (4)
+- `get_radiation_safecast` — radiation sensors
+- `get_aviation_delays` — FAA airport delays
+- `get_tor_exit_nodes(query)` — Tor exit relays
+- `get_telegram_osint` — Telegram OSINT (requires WS_RELAY_URL)
+
+### Financial (5, require API keys)
+- `get_fred_series(query)` — FRED time series (FRED_API_KEY)
+- `get_fmp_quote(query)` — stock quotes (FMP_API_KEY)
+- `get_fmp_profile(query)` — company profiles (FMP_API_KEY)
+- `get_fmp_ratios(query)` — financial ratios (FMP_API_KEY)
+- `get_fmp_estimates(query)` — analyst estimates (FMP_API_KEY)
+
+### Conflict (1, requires API key)
+- `get_acled_conflicts(query)` — armed conflict events (ACLED_ACCESS_TOKEN)
+
+### Tariffs (1)
+- `get_tariff_rates(query)` — WITS MFN tariff rates
+
+## Universal parameters (all tools)
+
 - `search` — text search across all result fields (e.g. `search="Iran"`)
-- `filter` — JSON field-level queries (e.g. `filter='{"magnitude": ">5"}'`)
-- `limit` — max results
-- `format` — `"json"` (default), `"md"`, `"both"`
+- `filter` — JSON field queries (e.g. `filter='{"magnitude": ">5"}'`). Operators: `>`, `<`, `>=`, `<=`, `=`, `!=`
+- `limit` — max results returned
+- `format` — `json` (default), `md`, `both`
 
-Filter operators: `>`, `<`, `>=`, `<=`, `=`, `!=` for numbers. Contains-match for strings.
+## Workflows
 
-## Analysis workflows
+### Full intelligence briefing
+```
+1. intelligence_report(query="UAE", keywords="UAE,Dubai,Hormuz")  # composite, 14 modules
+2. get_country_risk_signals(query="UAE")  # raw evidence from 9 feeds
+3. get_gdelt_events(query="UAE", country="AE")  # structured events
+4. get_aircraft(bbox="22,51,27,57")  # airspace
+5. get_ioda_outages(query="AE")  # internet status
+6. get_opensanctions(query="emirates")  # sanctions exposure
+```
 
-### Intelligence Report — "intel on [place]" / "OSINT on [place]"
+### Cyber investigation
+```
+1. get_greynoise(query="1.2.3.4")  # is it a scanner?
+2. get_whois(query="suspicious.com")  # who owns it?
+3. get_certificates(query="suspicious.com")  # what certs exist?
+4. get_bgp(query="1.2.3.4")  # what AS, where?
+5. get_mitre_attack(query="T1566")  # what technique?
+6. get_cisa_kev(query="vendor")  # actively exploited?
+```
 
-**ONE CALL:** `intelligence_report(query="Dubai", keywords="Dubai,UAE,Gulf,Hormuz")`
+### Economic outlook
+```
+1. get_imf_datasets(query="US")  # 9 key indicators
+2. get_bis_rates()  # central bank rates
+3. get_trade_comtrade(query="US", partner="CN")  # trade flows
+4. get_energy_commodities_news()  # oil/gas/mining
+```
 
-Queries 14+ modules in parallel, filters by keywords, returns structured report in ~10s.
+## Key notes
 
-### Full Intelligence Briefing — "briefing on [country]"
+- `get_aircraft` uses bbox `south,west,north,east`. Use wide bbox to capture overflights (e.g. `22,51,27,57` for UAE not `25,55,25.5,55.5`)
+- `get_gdelt_events` is the reliable GDELT (bulk, no rate limit). `get_gdelt` uses the rate-limited API
+- `get_imf_datasets` with just a country code returns 9 key indicators. With `INDICATOR.COUNTRY` returns specific time series
+- Tools that need API keys return clear setup instructions, not errors
+- All data is real-time with 5-min cache TTL (agent-overridable via `cache_ttl_ms=0`)
 
-For maximum depth, query these modules in parallel:
-1. `intelligence_report` — composite report
-2. `get_country_risk_signals` — raw evidence from 9 feeds
-3. `get_gdelt_events` — structured events (1500/15min, conflict/cooperation)
-4. `get_aircraft` — live airspace with military tagging
-5. Thematic news feeds (pick relevant ones)
-6. `get_ioda_outages` — internet infrastructure status
-7. `get_opensanctions` — sanctions exposure
-8. `get_chokepoints` — maritime chokepoint status
+## Response format
 
-### Quick Scan — "what's happening right now"
+```json
+{
+  "data": { ... },
+  "durationMs": 406,
+  "cached": false,
+  "_meta": { "fetchedAt": "2026-03-21T...", "fromCache": false }
+}
+```
 
-1. `get_intelligence_summary` — risk scores
-2. `get_news_rss` — latest headlines
-3. `get_intelligence_findings` — prioritized alerts from 11 sources
-4. `get_earthquakes` — seismic activity
+## Rules
 
-### Aircraft — "planes over [place]" / "military flights"
-
-`get_aircraft` has **19 filter params**:
-- `bbox` — geographic area (e.g. '22,51,26,56' for UAE)
-- `callsign`, `registration`, `icao24` — find specific aircraft
-- `aircraft_type` — e.g. 'C17', 'B77W'
-- `military` — true for military only
-- `squawk` — e.g. '7700' for emergency
-- `min_altitude_ft`, `max_altitude_ft` — altitude range
-- `min_speed_kts` — speed filter
-- `on_ground` — true/false
-- `emergency` — true for emergency squawks
-
-Source: ADSB.fi primary (unfiltered, shows military), OpenSky fallback.
-
-### Cyber Brief — "cyber threats"
-
-1. `get_cyber_threats` — active C2 servers (Feodo)
-2. `get_cisa_kev` — actively exploited CVEs
-3. `get_ransomware` — ransomware victim posts
-4. `get_threatfox` — malware IOCs
-5. `get_urlhaus_urls` — malware distribution URLs
-6. `get_nvd_cves` — full NVD vulnerability search
-7. `get_cyber_news` — Krebs, Hacker News, BleepingComputer
-
-### Economic Outlook — "economy" / "markets"
-
-1. `get_economic_macro` — FRED macro signals
-2. `get_bis_rates` — central bank policy rates (11 economies)
-3. `get_bis_fx` — exchange rates
-4. `get_crypto` — cryptocurrency prices
-5. `get_us_treasury` — receipts/outlays/deficit
-6. `get_trade_comtrade` — UN Comtrade trade flows
-7. `get_fear_greed` — market sentiment
-
-### Maritime — "shipping" / "chokepoints"
-
-1. `get_chokepoints` — Suez, Panama, Hormuz, Malacca status
-2. `get_submarine_cables` — 700+ undersea cables
-3. `get_maritime_news` — gCaptain, shipping news
-
-### Sanctions — "sanctions on [name/country]"
-
-1. `get_opensanctions` — 78K entities from 40+ sanctions lists (OFAC, EU, UN, UK, AU + PEPs)
-2. `get_sanctions` — OFAC SDN list search
-
-### Country Risk — "risk for [country]"
-
-`get_country_risk_signals(query="UAE")` — raw evidence from 9 feeds:
-- News headlines with threat keywords
-- Defense articles
-- Travel advisory level
-- Embassy alerts
-- Disaster events
-- Health alerts
-No scoring — returns evidence for agent to analyze.
-
-## News feed categories
-
-| Tool | Sources | Items | Use for |
-|------|---------|-------|---------|
-| `get_news_rss` | BBC, Reuters, AP, CNN, Guardian, FT +9 | ~198 | General world news |
-| `get_security_intel_feeds` | Bellingcat, Crisis Group, War on the Rocks, Oryx, Jamestown, Foreign Policy | ~60 | OSINT investigations, conflict analysis |
-| `get_defense_military_feeds` | Defense News, Military Times, Breaking Defense, USNI, DefenseOne, War Zone, Task & Purpose, UK MOD | ~80 | Military/defense industry |
-| `get_cyber_news` | Krebs, Hacker News, BleepingComputer, Ars Technica | ~20 | Cybersecurity reporting |
-| `get_maritime_news` | gCaptain, maritime/chokepoint news | ~42 | Shipping, naval, maritime |
-| `get_policy_feeds` | CSIS, Arms Control, FAS, Bulletin, MEI, Brookings, Carnegie, Chatham House | ~64 | Think tank analysis |
-| `get_regional_conflict_feeds` | BBC ME/Africa/Asia/LatAm, Sahel, InSight Crime, India, trade wars | ~80 | Regional hotspots |
-
-For comprehensive news: `query_modules(modules="news_rss,security_intel_feeds,defense_military_feeds,regional_conflict_feeds")`
-
-## All tools by category
-
-**Aggregate (5)**: health_check, list_modules, query_modules, get_intelligence_summary, intelligence_report
-**Aircraft (1)**: get_aircraft (19 params, ADSB.fi + OpenSky, military tagging)
-**Military (1)**: get_military_usni
-**Cyber (7)**: get_cyber_threats, get_cisa_kev, get_ransomware, get_threatfox, get_urlhaus_urls, get_nvd_cves, get_cyber_news
-**Natural Events (7)**: get_earthquakes, get_climate_anomalies, get_natural_events, get_disaster_alerts, get_tropical_weather, get_weather_alerts, get_space_weather
-**Civil Defense (1)**: get_civil_defense_alerts (95+ countries, WMO CAP)
-**Markets (4)**: get_crypto, get_stablecoins, get_fear_greed, get_bitcoin_hashrate
-**Economics (7)**: get_economic_macro, get_bis_rates, get_bis_fx, get_us_spending, get_us_treasury, get_worldbank, get_imf_data
-**Trade (2)**: get_trade_comtrade (UN trade flows), get_tariff_rates (WITS tariffs)
-**Supply Chain (2)**: get_chokepoints, get_critical_minerals
-**News (9)**: get_news_rss, get_gdelt, get_news_velocity, get_aviation_news, get_defense_news, get_security_intel_feeds, get_defense_military_feeds, get_maritime_news, get_regional_conflict_feeds
-**Policy (1)**: get_policy_feeds (8 think tanks)
-**GDELT (1)**: get_gdelt_events (bulk, 1500 events/15min, no rate limit)
-**Research (3)**: get_tech_events, get_arxiv, get_hackernews
-**Geolocation (3)**: get_geocode, get_satellite_snapshot, get_satellite_search
-**Humanitarian (3)**: get_displacement, get_population_exposure, get_giving_summary
-**Security (6)**: get_sanctions, get_opensanctions (78K entities), get_travel_advisories, get_health_advisories, get_embassy_alerts, get_country_facts
-**Radiation (1)**: get_radiation_safecast
-**Aviation (1)**: get_aviation_delays
-**Intelligence (3)**: get_pizzint, get_intelligence_findings, get_country_risk_signals
-**Infrastructure (4)**: get_infrastructure_outages, get_infrastructure_services, get_submarine_cables, get_ioda_outages
-**Enrichment (3)**: get_sec_filings, get_github_activity, get_hn_search
-**Financial (5, key required)**: get_fred_series, get_fmp_quote, get_fmp_profile, get_fmp_ratios, get_fmp_estimates
-
-### API-key-dependent tools
-
-| Tool | Key | Get it at |
-|------|-----|-----------|
-| get_fred_series | FRED_API_KEY | https://fred.stlouisfed.org/docs/api/api_key.html (free) |
-| get_fmp_quote/profile/ratios/estimates | FMP_API_KEY | https://site.financialmodelingprep.com/developer (free tier) |
-
-### Resources (browsable)
-
-- `osint://earthquakes` — USGS seismic
-- `osint://climate` — climate anomalies
-- `osint://disasters` — GDACS alerts
-- `osint://military/usni` — fleet tracker
-- `osint://cyber` — threat IOCs
-- `osint://news` — RSS feeds
-
-## Output rules
-
-1. Never claim data you didn't fetch. Say if a tool returned empty.
-2. Separate facts from analysis. Label "Data:" vs "Assessment:".
-3. Cite the source tool.
-4. Show timestamps when available.
-5. Acknowledge gaps.
-6. No hallucinated intelligence.
-
-## Extending
-
-Drop a `.mjs` file in `server/api/modules/` — auto-discovered by MCP. No code changes needed.
+1. Never claim data you didn't fetch
+2. Separate facts from analysis
+3. Cite which tool provided each data point
+4. If a tool returns empty, say so
+5. No hallucinated intelligence
