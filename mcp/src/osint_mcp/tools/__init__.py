@@ -476,6 +476,26 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "maritime_news",
         "description": "Get maritime & shipping news — gCaptain, chokepoint disruptions, piracy, naval operations.",
     },
+    # ── Aviation NOTAMs ──────────────────────────────────────────
+    {
+        "tool_name": "get_notams",
+        "module_id": "notams",
+        "description": "Get NOTAMs (Notices to Air Missions) from FAA — airspace closures, hazards, facility changes. Query with ICAO airport code (e.g. 'OMDB' for Dubai, 'KJFK' for JFK, 'EGLL' for Heathrow).",
+        "required_params": {"query": str},
+    },
+    # ── AIS Vessel Tracking ──────────────────────────────────────
+    {
+        "tool_name": "get_ais_vessels",
+        "module_id": "ais_vessels",
+        "description": "Get live vessel positions from AIS. Requires AISSTREAM_API_KEY (free at aisstream.io). Use bbox for region (e.g. '24,54,26,56' for UAE).",
+        "required_params": {"bbox": str},
+    },
+    # ── Telegram OSINT ───────────────────────────────────────────
+    {
+        "tool_name": "get_telegram_osint",
+        "module_id": "news_telegram",
+        "description": "Get Telegram OSINT channel feed. Requires WS_RELAY_URL (Railway relay server running MTProto). Returns messages from curated OSINT channels.",
+    },
     {
         "tool_name": "get_policy_feeds",
         "module_id": "policy_feeds",
@@ -716,6 +736,9 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "macro_worldbank_indicator", # → get_worldbank (curated)
         "macro_imf_series",         # → get_imf_data (curated)
         "macro_oecd_dataset",       # OECD API returns 404 anyway
+        "notams",                   # → get_notams (curated)
+        "ais_vessels",              # → get_ais_vessels (curated)
+        "news_telegram",            # → get_telegram_osint (curated)
     })
 
     try:
