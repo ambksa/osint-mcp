@@ -496,6 +496,12 @@ TOOL_REGISTRY: list[dict] = [
         "module_id": "news_telegram",
         "description": "Get Telegram OSINT channel feed. Requires WS_RELAY_URL (Railway relay server running MTProto). Returns messages from curated OSINT channels.",
     },
+    # ── Energy & Commodities ─────────────────────────────────────
+    {
+        "tool_name": "get_energy_commodities_news",
+        "module_id": "energy_commodities_news",
+        "description": "Get energy & commodities news — oil/OPEC, natural gas/LNG, mining, metals, uranium. Critical for supply chain and geopolitical analysis.",
+    },
     # ── GreyNoise ────────────────────────────────────────────────
     {
         "tool_name": "get_greynoise",
@@ -747,6 +753,7 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
         "ais_vessels",              # → get_ais_vessels (curated)
         "news_telegram",            # → get_telegram_osint (curated)
         "greynoise",                # → get_greynoise (curated)
+        "energy_commodities_news",  # → get_energy_commodities_news (curated)
     })
 
     try:

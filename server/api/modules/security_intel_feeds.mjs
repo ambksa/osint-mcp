@@ -6,7 +6,7 @@
 import { fetchFeeds } from './_rss_helper.mjs';
 
 export const name = 'security_intel_feeds';
-export const description = 'Security & intelligence news — Bellingcat OSINT, Crisis Group conflict analysis, War on the Rocks defense essays, Oryx combat data, Jamestown Foundation, Foreign Policy.';
+export const description = 'Security & intelligence news — Bellingcat, Crisis Group, War on the Rocks, Oryx, Jamestown, Foreign Policy, Foreign Affairs, InSight Crime.';
 
 const FEEDS = [
   'https://www.bellingcat.com/feed/',
@@ -15,6 +15,8 @@ const FEEDS = [
   'https://www.oryxspioenkop.com/feeds/posts/default?alt=rss',
   'https://jamestown.org/feed/',
   'https://foreignpolicy.com/feed/',
+  'https://www.foreignaffairs.com/rss.xml',
+  'https://insightcrime.org/feed/',
 ];
 
 export async function run(ctx, params) {
@@ -24,5 +26,5 @@ export async function run(ctx, params) {
     maxTotal: Number(params.max_total ?? 100),
     category: 'security_intel',
   });
-  return { ...result, source: 'Security & Intelligence feeds (6 sources)' };
+  return { ...result, source: 'Security & Intelligence feeds (8 sources)' };
 }

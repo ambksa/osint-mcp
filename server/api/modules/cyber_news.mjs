@@ -6,13 +6,15 @@
 import { fetchFeeds } from './_rss_helper.mjs';
 
 export const name = 'cyber_news';
-export const description = 'Cybersecurity news — Krebs on Security, The Hacker News, BleepingComputer, Ars Technica Security. Complements IOC tools (CISA KEV, ThreatFox, ransomware).';
+export const description = 'Cybersecurity news — Krebs, Hacker News, BleepingComputer, Ars Technica, Dark Reading, Ransomware.live. Complements IOC tools (CISA KEV, ThreatFox, ransomware).';
 
 const FEEDS = [
   'https://krebsonsecurity.com/feed/',
   'https://feeds.feedburner.com/TheHackersNews',
   'https://www.bleepingcomputer.com/feed/',
   'https://feeds.arstechnica.com/arstechnica/security',
+  'https://www.darkreading.com/rss.xml',
+  'https://www.ransomware.live/rss.xml',
 ];
 
 export async function run(ctx, params) {
@@ -22,5 +24,5 @@ export async function run(ctx, params) {
     maxTotal: Number(params.max_total ?? 60),
     category: 'cyber_security',
   });
-  return { ...result, source: 'Cyber Security news (4 sources)' };
+  return { ...result, source: 'Cyber Security news (6 sources)' };
 }

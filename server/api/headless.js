@@ -1355,21 +1355,21 @@ const MODULES = {
       const maxTotal = Number(params.max_total ?? 200);
 
       const defaultFeeds = [
+        // Wire services & major outlets
         'https://feeds.bbci.co.uk/news/world/rss.xml',
-        'https://rss.cnn.com/rss/edition_world.rss',
         'https://www.aljazeera.com/xml/rss/all.xml',
         'https://www.theguardian.com/world/rss',
         'https://www.ft.com/world?format=rss',
-        'https://www.defenseone.com/rss/all/',
-        'https://breakingdefense.com/feed/',
-        'https://news.usni.org/feed',
-        'https://www.state.gov/feed/',
-        'https://www.defense.gov/News/News-Stories/RSS/',
-        'https://feeds.reuters.com/reuters/worldNews',
-        'https://feeds.reuters.com/reuters/topNews',
+        'https://feeds.npr.org/1001/rss.xml',
+        'https://www.france24.com/en/rss',
+        // Google News proxied (backup for paywalled/blocked feeds)
         'https://news.google.com/rss/search?q=site:reuters.com%20when:24h&hl=en-US&gl=US&ceid=US:en',
         'https://news.google.com/rss/search?q=site:apnews.com%20when:24h&hl=en-US&gl=US&ceid=US:en',
         'https://news.google.com/rss/search?q=site:afp.com%20when:24h&hl=en-US&gl=US&ceid=US:en',
+        // US Government
+        'https://www.state.gov/feed/',
+        'https://www.defense.gov/News/News-Stories/RSS/',
+        'https://www.sec.gov/news/pressreleases.rss',
       ];
 
       const feedList = urls.length ? urls : defaultFeeds;
