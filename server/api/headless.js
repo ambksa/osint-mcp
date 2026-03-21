@@ -811,7 +811,7 @@ const MODULES = {
         modulesToPull.map(async (name) => {
           const mod = MODULES[name];
           if (!mod) return { name, data: null };
-          const data = await mod.run(ctx, { limit: 50, ...(params[name] || {}) });
+          const data = await mod.run(ctx, { limit: Math.max(50, limit), ...(params[name] || {}) });
           return { name, data };
         })
       );
@@ -844,11 +844,11 @@ const MODULES = {
       if (ransomPosts.length > 0) {
         // Group by gang
         const gangs = {};
-        for (const p of ransomPosts.slice(0, 20)) {
+        for (const p of ransomPosts) {
           const g = p.group || p.group_name || 'unknown';
           gangs[g] = (gangs[g] || 0) + 1;
         }
-        const topGangs = Object.entries(gangs).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const topGangs = Object.entries(gangs).sort((a, b) => b[1] - a[1]).slice(0, 10);
         findings.push({
           id: `ransom-${now}`,
           type: 'ransomware_activity',
@@ -863,7 +863,7 @@ const MODULES = {
 
       // ── Cyber threats (Feodo C2) ──────────────────────────────
       const threats = results.cyber_threats?.threats || [];
-      for (const t of threats.slice(0, 10)) {
+      for (const t of threats) {
         findings.push({
           id: `cyber-${t.id || t.indicator || now}`,
           type: 'cyber_threat',
@@ -896,7 +896,7 @@ const MODULES = {
       // ── GDACS disaster alerts (Orange or Red) ────────────────
       const gdacs = results.natural_events_gdacs?.events || results.natural_events_gdacs?.alerts || [];
       const alertLevelMap = { red: 3, orange: 2, green: 1 };
-      for (const a of gdacs.slice(0, 20)) {
+      for (const a of gdacs) {
         const level = alertLevelMap[(a.alertLevel || '').toLowerCase()] || 0;
         if (level < 2) continue; // Only Orange+ alerts
         findings.push({
@@ -913,7 +913,7 @@ const MODULES = {
 
       // ── Weather alerts (Extreme only) ─────────────────────────
       const weather = results.weather_alerts?.alerts || [];
-      for (const w of weather.slice(0, 10)) {
+      for (const w of weather) {
         const sev = (w.severity || '').toLowerCase();
         if (sev !== 'extreme') continue;
         findings.push({
@@ -930,7 +930,7 @@ const MODULES = {
 
       // ── Embassy alerts (skip error/empty items) ──────────────
       const embassy = (results.embassy_alerts?.items || []).filter((e) => e.title && !e.error);
-      for (const e of embassy.slice(0, 10)) {
+      for (const e of embassy) {
         findings.push({
           id: `embassy-${now}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'diplomatic_alert',
@@ -945,7 +945,7 @@ const MODULES = {
 
       // ── Health advisories (outbreaks) ─────────────────────────
       const health = results.health_advisories?.items || [];
-      for (const h of health.slice(0, 5)) {
+      for (const h of health) {
         const title = h.title || '';
         // Only include outbreak/alert items, not general health news
         if (!/outbreak|alert|emergency|epidemic|pandemic|warning/i.test(title)) continue;

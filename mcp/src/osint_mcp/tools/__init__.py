@@ -695,8 +695,8 @@ async def _auto_discover_modules(mcp: FastMCP, client: HeadlessClient) -> None:
     known_ids = {entry["module_id"] for entry in TOOL_REGISTRY}
     # Also skip modules handled by aggregate tools
     known_ids.update({
-        "intelligence_risk_scores",  # get_intelligence_summary
-        "intelligence_report",       # intelligence_report
+        "intelligence_risk_scores",  # static broken scores — use country_risk_signals instead
+        "intelligence_report",       # intelligence_report aggregate tool
     })
     # Skip broken modules — return empty data, shouldn't be exposed
     known_ids.update({

@@ -100,19 +100,6 @@ def register_aggregate_tools(mcp: FastMCP, client: HeadlessClient) -> None:
         return _apply_filters(result, search, filter)
 
     @mcp.tool()
-    async def get_intelligence_summary(
-        format: str = "json",
-        search: str | None = None,
-        filter: str | None = None,
-    ) -> dict:
-        """Get synthesized intelligence risk summary from conflict, unrest, outages, cyber, and seismic sources.
-        search: text search across all result fields. filter: JSON field filters e.g. '{"field": ">value"}'"""
-        result = await client.query_module("intelligence_risk_scores", {
-            "format": format,
-        })
-        return _apply_filters(result, search, filter)
-
-    @mcp.tool()
     async def intelligence_report(
         query: str,
         keywords: str | None = None,
